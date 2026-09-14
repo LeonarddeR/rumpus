@@ -1,0 +1,32 @@
+--out crates/rumpus/src/win32.rs
+
+--filter
+    HANDLE
+    INVALID_HANDLE_VALUE
+    HWND
+    OVERLAPPED
+    SECURITY_ATTRIBUTES
+
+    ERROR_ACCESS_DENIED
+    ERROR_PIPE_CONNECTED
+    FILE_ATTRIBUTE_NORMAL
+    FILE_FLAG_FIRST_PIPE_INSTANCE
+    GENERIC_WRITE
+    OPEN_EXISTING
+    PIPE_ACCESS_INBOUND
+    PIPE_READMODE_BYTE
+    PIPE_TYPE_BYTE
+    PIPE_UNLIMITED_INSTANCES
+    PIPE_WAIT
+    ASFW_ANY
+
+    CloseHandle
+    ConnectNamedPipe
+    CreateFileW
+    CreateNamedPipeW
+    DisconnectNamedPipe
+    ReadFile
+    WaitNamedPipeW
+    WriteFile
+    AllowSetForegroundWindow
+    SetForegroundWindow

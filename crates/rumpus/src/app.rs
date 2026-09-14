@@ -17,9 +17,11 @@ use wxdragon::prelude::*;
 use crate::{
 	announce::{accessible_name, announce, create_live_region},
 	dialogs,
+	ipc::{self, IpcCommand},
 	menu::{self, ids},
 	midi::backend::OutputDevice,
 	player::{self, Command, Player, PlayerEvent},
+	win32::Windows::Win32::{HWND, SetForegroundWindow},
 };
 
 const SEEK_STEP_US: i64 = 5_000_000;
@@ -151,8 +153,9 @@ impl App {
 		app
 	}
 
-	/// Shows the window and starts the playback thread, which probes the service.
-	pub fn start(&self) {
+	/// Shows the window, starts the playback thread, which probes the service, and starts serving
+	/// commands from later instances.
+	pub fn start(&self, server: Option<ipc::Server>) {
 		self.frame.show(true);
 		self.playlist_box.set_focus();
 		let player = player::spawn(|event| {
@@ -161,6 +164,33 @@ impl App {
 		});
 		player.send(Command::Probe);
 		*self.player.borrow_mut() = Some(player);
+		if let Some(server) = server {
+			server.serve(|command| {
+				call_after(Box::new(move || with_app(|app| app.on_ipc_command(command))));
+				wake_up_idle();
+			});
+		}
+	}
+
+	/// Brings the window to the front and queues the files a later instance was started with.
+	fn on_ipc_command(&self, command: IpcCommand) {
+		tracing::info!(?command, "ipc");
+		self.activate();
+		if let IpcCommand::OpenFiles(files) = command {
+			self.open_files(files, false);
+		}
+	}
+
+	fn activate(&self) {
+		self.frame.show(true);
+		self.frame.iconize(false);
+		self.frame.request_user_attention(UserAttentionFlag::Info);
+		self.frame.raise();
+		let handle = self.frame.get_handle();
+		if !handle.is_null() {
+			// SAFETY: the handle belongs to a live frame owned by this leaked `App`.
+			let _ = unsafe { SetForegroundWindow(HWND(handle)) };
+		}
 	}
 
 	fn send(&self, command: Command) {
@@ -246,7 +276,7 @@ impl App {
 		self.set_ready(true);
 		self.frame.set_status_text("Stopped", 0);
 		let pending = std::mem::take(&mut self.state.borrow_mut().pending_files);
-		self.open_files(pending);
+		self.open_files(pending, true);
 	}
 
 	fn select_output(&self, index: usize) {
@@ -304,7 +334,7 @@ impl App {
 		match id {
 			ids::OPEN_FILES => {
 				let files = dialogs::pick_midi_files(&self.frame);
-				self.open_files(files);
+				self.open_files(files, true);
 			}
 			ids::ADD_FOLDER => {
 				if let Some(folder) = dialogs::pick_folder(&self.frame) {
@@ -354,20 +384,29 @@ impl App {
 		}
 	}
 
-	/// Adds files to the playlist and plays the first of them, once the service is ready.
-	fn open_files(&self, files: Vec<PathBuf>) {
+	/// Adds files to the playlist, once the service is ready, and plays the first of them when
+	/// `play` is set or nothing is playing or paused.
+	fn open_files(&self, files: Vec<PathBuf>, play: bool) {
 		if files.is_empty() {
 			return;
 		}
-		if !self.state.borrow().ready {
+		let (ready, idle) = {
+			let state = self.state.borrow();
+			(state.ready, matches!(state.state, None | Some(State::Stopped)))
+		};
+		if !ready {
 			self.state.borrow_mut().pending_files.extend(files);
 			return;
 		}
 		let first = self.state.borrow().playlist.tracks().len();
 		self.state.borrow_mut().playlist.add_files(files);
-		self.state.borrow_mut().playlist.select(first);
-		self.refresh_playlist();
-		self.play_selected();
+		if play || idle {
+			self.state.borrow_mut().playlist.select(first);
+			self.refresh_playlist();
+			self.play_selected();
+		} else {
+			self.refresh_playlist();
+		}
 	}
 
 	fn add_folder(&self, folder: &std::path::Path) {

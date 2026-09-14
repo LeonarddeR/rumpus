@@ -64,6 +64,16 @@ pub fn probe() -> Result<(), Unavailable> {
 	if MidiApi::EnsureServiceAvailable() { Ok(()) } else { Err(Unavailable::ServiceNotRunning) }
 }
 
+/// The exit code of `rumpus --probe`, which the installer maps to a message.
+pub const fn probe_exit_code(result: &Result<(), Unavailable>) -> i32 {
+	match result {
+		Ok(()) => 0,
+		Err(Unavailable::LegacyMode) => 1,
+		Err(Unavailable::ServiceNotRunning) => 2,
+		Err(Unavailable::NotInstalled(_)) => 3,
+	}
+}
+
 /// Lists output ports, one per destination entry of each endpoint's MIDI 1.0 port name table,
 /// or the endpoint itself on group 1 when it publishes no table.
 pub fn outputs(include_diagnostics: bool) -> Vec<OutputDevice> {
@@ -235,6 +245,14 @@ mod tests {
 
 	fn loopback(id: &str) -> OutputSelection {
 		OutputSelection { endpoint_id: id.to_owned(), group_index: 0 }
+	}
+
+	#[test]
+	fn probe_exit_codes_are_stable() {
+		assert_eq!(probe_exit_code(&Ok(())), 0);
+		assert_eq!(probe_exit_code(&Err(Unavailable::LegacyMode)), 1);
+		assert_eq!(probe_exit_code(&Err(Unavailable::ServiceNotRunning)), 2);
+		assert_eq!(probe_exit_code(&Err(Unavailable::NotInstalled("x".to_owned()))), 3);
 	}
 
 	#[test]
