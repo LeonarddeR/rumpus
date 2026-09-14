@@ -132,8 +132,8 @@ publishes.
 | Seek 5 seconds | Ctrl+Left, Ctrl+Right |
 | Seek 30 seconds | Ctrl+Shift+Left, Ctrl+Shift+Right |
 | Announce position | Ctrl+I |
-| Tempo down, up, reset | Ctrl+Down, Ctrl+Up, Ctrl+0 |
-| Transpose down, up, reset | Ctrl+Shift+Down, Ctrl+Shift+Up, Ctrl+Shift+0 |
+| Tempo down, up, reset | Ctrl+Down, Ctrl+Up, Ctrl+Backspace |
+| Transpose down, up, reset | Ctrl+Shift+Down, Ctrl+Shift+Up, Ctrl+Shift+Backspace |
 | Exit | Ctrl+Q |
 
 Tempo and transpose are also spin controls in the window. The MIDI output is chosen from the

@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The Device menu looks for MIDI outputs every time it opens, so the Refresh Output Devices
   item and its F5 shortcut are gone
+- The tempo and transpose reset shortcuts are Ctrl+Backspace and Ctrl+Shift+Backspace instead of
+  Ctrl+0 and Ctrl+Shift+0, which Windows can claim as an input-language hot key
 
 ### Fixed
 

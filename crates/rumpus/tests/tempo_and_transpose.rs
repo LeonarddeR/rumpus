@@ -20,7 +20,7 @@ fn shortcuts_move_the_spin_controls_and_announce() {
 	common::wait_for_value(&tempo, "105");
 	common::wait_for_log(&app, "announce Tempo 105%");
 
-	common::send_keys(app.pid, "{ctrl}0");
+	common::send_keys(app.pid, "{ctrl}{backspace}");
 	common::wait_for_value(&tempo, "100");
 	common::wait_for_log(&app, "announce Tempo 100%");
 
@@ -28,7 +28,7 @@ fn shortcuts_move_the_spin_controls_and_announce() {
 	common::wait_for_value(&transpose, "1");
 	common::wait_for_log(&app, "announce Transpose up 1 semitone");
 
-	common::send_keys(app.pid, "{ctrl}{shift}{down}");
+	common::send_keys(app.pid, "{ctrl}{shift}{backspace}");
 	common::wait_for_value(&transpose, "0");
 	common::wait_for_log(&app, "announce Transpose off");
 }

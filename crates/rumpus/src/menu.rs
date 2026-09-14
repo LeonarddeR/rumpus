@@ -84,13 +84,13 @@ const PLAYBACK_ITEMS: &[(i32, &str, &str)] = &[
 const TEMPO_ITEMS: &[(i32, &str, &str)] = &[
 	(ids::TEMPO_DOWN, "&Slower\tCtrl+Down", "Lower the tempo by five percent"),
 	(ids::TEMPO_UP, "&Faster\tCtrl+Up", "Raise the tempo by five percent"),
-	(ids::TEMPO_RESET, "&Reset Tempo\tCtrl+0", "Return to the original tempo"),
+	(ids::TEMPO_RESET, "&Reset Tempo\tCtrl+Backspace", "Return to the original tempo"),
 ];
 
 const TRANSPOSE_ITEMS: &[(i32, &str, &str)] = &[
 	(ids::TRANSPOSE_DOWN, "&Down a Semitone\tCtrl+Shift+Down", "Transpose down by one semitone"),
 	(ids::TRANSPOSE_UP, "&Up a Semitone\tCtrl+Shift+Up", "Transpose up by one semitone"),
-	(ids::TRANSPOSE_RESET, "&Reset Transpose\tCtrl+Shift+0", "Play at the written pitch"),
+	(ids::TRANSPOSE_RESET, "&Reset Transpose\tCtrl+Shift+Backspace", "Play at the written pitch"),
 ];
 
 const HELP_ITEMS: &[(i32, &str, &str)] = &[(ids::ABOUT, "&About Rumpus", "Version and license information")];
