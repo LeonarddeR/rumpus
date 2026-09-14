@@ -7,10 +7,9 @@ use rumpus_core::{
 	transport::{Clock, SendError, Sink},
 	ump::packet_word_count,
 };
-use windows_core::{EventRevoker, GUID, HSTRING};
+use windows_core::{GUID, HSTRING};
 
 use super::bindings::Windows::Devices::Midi2::{
-	Diagnostics::MidiDiagnostics,
 	Enumeration::{
 		Midi1PortFlow, MidiEndpointDeviceInformation, MidiEndpointDeviceInformationFilters,
 		MidiEndpointDeviceInformationSortOrder,
@@ -108,12 +107,16 @@ pub fn outputs(include_diagnostics: bool) -> Vec<OutputDevice> {
 	outputs
 }
 
+#[cfg(test)]
 pub fn loopback_a_id() -> String {
-	MidiDiagnostics::DiagnosticsLoopbackAEndpointDeviceId().to_string_lossy()
+	super::bindings::Windows::Devices::Midi2::Diagnostics::MidiDiagnostics::DiagnosticsLoopbackAEndpointDeviceId()
+		.to_string_lossy()
 }
 
+#[cfg(test)]
 pub fn loopback_b_id() -> String {
-	MidiDiagnostics::DiagnosticsLoopbackBEndpointDeviceId().to_string_lossy()
+	super::bindings::Windows::Devices::Midi2::Diagnostics::MidiDiagnostics::DiagnosticsLoopbackBEndpointDeviceId()
+		.to_string_lossy()
 }
 
 /// The service's clock, in microseconds.
@@ -161,7 +164,7 @@ impl Session {
 			return Err(format!("Could not open MIDI endpoint {}.", output.endpoint_id));
 		}
 		let id = connection.ConnectionId();
-		Ok(Connection { session: self.session.clone(), connection, id })
+		Ok(Connection { session: self.session.clone(), endpoint: connection, id })
 	}
 }
 
@@ -174,15 +177,19 @@ impl Drop for Session {
 /// An open connection to one endpoint; dropping it disconnects.
 pub struct Connection {
 	session: MidiSession,
-	connection: MidiEndpointConnection,
+	endpoint: MidiEndpointConnection,
 	id: GUID,
 }
 
 impl Connection {
 	/// Calls `handler` with the service timestamp in microseconds and the first word of every
 	/// message the endpoint sends back, until the revoker is dropped.
-	pub fn on_message(&self, handler: impl Fn(u64, u32) + Send + 'static) -> windows_core::Result<EventRevoker> {
-		self.connection.MessageReceived(move |_, args| {
+	#[cfg(test)]
+	pub fn on_message(
+		&self,
+		handler: impl Fn(u64, u32) + Send + 'static,
+	) -> windows_core::Result<windows_core::EventRevoker> {
+		self.endpoint.MessageReceived(move |_, args| {
 			if let Some(args) = args.as_ref() {
 				handler(ticks_to_us(args.Timestamp()), args.PeekFirstWord());
 			}
@@ -203,10 +210,10 @@ impl Sink for Connection {
 		while let Some(&first) = rest.first() {
 			let (packet, tail) = rest.split_at(packet_word_count(first).min(rest.len()));
 			let result = match *packet {
-				[w0] => self.connection.SendSingleMessageWords(timestamp, w0),
-				[w0, w1] => self.connection.SendSingleMessageWords2(timestamp, w0, w1),
-				[w0, w1, w2] => self.connection.SendSingleMessageWords3(timestamp, w0, w1, w2),
-				[w0, w1, w2, w3] => self.connection.SendSingleMessageWords4(timestamp, w0, w1, w2, w3),
+				[w0] => self.endpoint.SendSingleMessageWords(timestamp, w0),
+				[w0, w1] => self.endpoint.SendSingleMessageWords2(timestamp, w0, w1),
+				[w0, w1, w2] => self.endpoint.SendSingleMessageWords3(timestamp, w0, w1, w2),
+				[w0, w1, w2, w3] => self.endpoint.SendSingleMessageWords4(timestamp, w0, w1, w2, w3),
 				_ => return Err(SendError),
 			};
 			if !result.contains(MidiSendMessageResults::Succeeded) {

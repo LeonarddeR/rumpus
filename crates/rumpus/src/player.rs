@@ -1,7 +1,7 @@
 //! The playback thread: owns the MIDI session and transport, driven by commands from the UI.
 
 use std::{
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::mpsc::{self, Receiver, RecvTimeoutError, Sender},
 	thread::{self, JoinHandle},
 	time::{Duration, Instant},
@@ -151,7 +151,10 @@ impl<'a> Worker<'a> {
 			Command::Play => self.with_transport(Transport::play),
 			Command::Pause => self.with_transport(Transport::pause),
 			Command::Stop => self.with_transport(Transport::stop),
-			Command::SeekBy(delta_us) => self.with_transport(|t| t.seek_by(delta_us)),
+			Command::SeekBy(delta_us) => {
+				self.with_transport(|t| t.seek_by(delta_us));
+				self.report_position();
+			}
 			Command::SetRate(rate) => {
 				self.rate = rate;
 				self.with_transport(|t| t.set_rate(rate));
@@ -161,6 +164,14 @@ impl<'a> Worker<'a> {
 				self.with_transport(|t| t.set_transpose(semitones));
 			}
 			Command::Shutdown => {}
+		}
+	}
+
+	/// Reports the current position right away, outside the regular interval.
+	fn report_position(&mut self) {
+		if let Some(transport) = &self.transport {
+			self.last_position_report = Instant::now();
+			self.emit(PlayerEvent::Position(transport.position_us()));
 		}
 	}
 
@@ -194,7 +205,7 @@ impl<'a> Worker<'a> {
 		}
 	}
 
-	fn load(&mut self, path: &PathBuf) {
+	fn load(&mut self, path: &Path) {
 		match smf::load(path) {
 			Ok(song) => {
 				self.emit(PlayerEvent::Loaded { title: song.title.clone(), duration_us: song.duration_us });

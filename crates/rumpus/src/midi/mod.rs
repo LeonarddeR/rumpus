@@ -1,4 +1,4 @@
-//! Windows MIDI Services access: generated WinRT bindings and the backend built on them.
+//! Windows MIDI Services access: generated `WinRT` bindings and the backend built on them.
 
 pub mod backend;
 #[expect(
