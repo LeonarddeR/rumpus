@@ -74,7 +74,7 @@ pub fn channel_voice(group: u8, channel: u8, message: ChannelMessage) -> u32 {
 	}
 }
 
-/// Packs a system exclusive payload (without `F0`/`F7`) into SysEx7 UMP packets, two words each.
+/// Packs a system exclusive payload (without `F0`/`F7`) into `SysEx7` UMP packets, two words each.
 #[must_use]
 pub fn sysex7(group: u8, payload: &[u8]) -> Vec<u32> {
 	let mut m = Sysex7::<Vec<u32>>::new();
