@@ -32,16 +32,34 @@ pub fn parse(bytes: &[u8]) -> Result<Song, SmfError> {
 	let smf = Smf::parse(bytes)?;
 	let mut title = String::new();
 	let mut raw = Vec::new();
+	let mut last_tick = 0u64;
 	for track in &smf.tracks {
 		let mut tick = 0u64;
+		let mut pending_sysex: Option<Vec<u8>> = None;
 		for event in track {
 			tick += u64::from(event.delta.as_int());
-			if let TrackEventKind::Meta(MetaMessage::TrackName(name)) = event.kind
-				&& title.is_empty()
-			{
-				String::from_utf8_lossy(name).trim().clone_into(&mut title);
+			last_tick = last_tick.max(tick);
+			match event.kind {
+				TrackEventKind::Meta(MetaMessage::TrackName(name)) if title.is_empty() => {
+					String::from_utf8_lossy(name).trim().clone_into(&mut title);
+				}
+				TrackEventKind::Meta(MetaMessage::Tempo(us_per_beat)) => {
+					raw.push((tick, RawEvent::Tempo(u64::from(us_per_beat.as_int()))));
+				}
+				TrackEventKind::Midi { channel, message } => {
+					raw.push((tick, RawEvent::Channel { channel: channel.as_int(), message: convert(message) }));
+				}
+				TrackEventKind::SysEx(data) => {
+					pending_sysex = push_sysex_chunk(&mut raw, tick, Vec::new(), data);
+				}
+				// Escape events outside a split system exclusive message are dropped.
+				TrackEventKind::Escape(data) => {
+					if let Some(buffer) = pending_sysex.take() {
+						pending_sysex = push_sysex_chunk(&mut raw, tick, buffer, data);
+					}
+				}
+				TrackEventKind::Meta(_) => {}
 			}
-			raw.push((tick, event.kind));
 		}
 	}
 	// Sorting by tick alone keeps track order and file order for equal ticks.
@@ -49,28 +67,40 @@ pub fn parse(bytes: &[u8]) -> Result<Song, SmfError> {
 
 	let mut clock = TickClock::new(smf.header.timing);
 	let mut events = Vec::new();
-	let mut duration_us = 0;
-	for (tick, kind) in raw {
+	for (tick, raw_event) in raw {
 		let at_us = clock.us_at(tick);
-		duration_us = duration_us.max(at_us);
-		match kind {
-			TrackEventKind::Meta(MetaMessage::Tempo(us_per_beat)) => {
-				clock.set_tempo(tick, u64::from(us_per_beat.as_int()));
+		match raw_event {
+			RawEvent::Tempo(us_per_beat) => clock.set_tempo(tick, us_per_beat),
+			RawEvent::Channel { channel, message } => {
+				events.push(TimedEvent { at_us, kind: EventKind::Channel { channel, message } });
 			}
-			TrackEventKind::Midi { channel, message } => events.push(TimedEvent {
-				at_us,
-				kind: EventKind::Channel { channel: channel.as_int(), message: convert(message) },
-			}),
-			TrackEventKind::SysEx(data) => {
-				let payload = data.strip_suffix(&[SYSEX_END]).unwrap_or(data);
-				events.push(TimedEvent { at_us, kind: EventKind::SysEx(payload.to_vec()) });
-			}
-			TrackEventKind::Meta(_) | TrackEventKind::Escape(_) => {}
+			RawEvent::SysEx(payload) => events.push(TimedEvent { at_us, kind: EventKind::SysEx(payload) }),
 		}
 	}
-	Ok(Song { title, duration_us, events })
+	Ok(Song { title, duration_us: clock.us_at(last_tick), events })
 }
 
+/// A track event in tick order, before tempo is resolved.
+enum RawEvent {
+	Tempo(u64),
+	Channel { channel: u8, message: ChannelMessage },
+	SysEx(Vec<u8>),
+}
+
+/// Appends a system exclusive chunk to `buffer`; a chunk ending in `F7` completes the message
+/// and pushes it, otherwise the buffer is returned to await the next chunk.
+fn push_sysex_chunk(raw: &mut Vec<(u64, RawEvent)>, tick: u64, mut buffer: Vec<u8>, chunk: &[u8]) -> Option<Vec<u8>> {
+	if let Some(payload) = chunk.strip_suffix(&[SYSEX_END]) {
+		buffer.extend_from_slice(payload);
+		raw.push((tick, RawEvent::SysEx(buffer)));
+		None
+	} else {
+		buffer.extend_from_slice(chunk);
+		Some(buffer)
+	}
+}
+
+/// Converts a channel message, mapping note on with velocity zero to note off.
 fn convert(message: MidiMessage) -> ChannelMessage {
 	match message {
 		MidiMessage::NoteOff { key, vel } => ChannelMessage::NoteOff { key: key.as_int(), velocity: vel.as_int() },
@@ -146,6 +176,14 @@ mod tests {
 				message: MidiMessage::NoteOn { key: u7::new(key), vel: u7::new(velocity) },
 			},
 		)
+	}
+
+	fn sysex(delta: u32, data: &[u8]) -> TrackEvent<'_> {
+		event(delta, TrackEventKind::SysEx(data))
+	}
+
+	fn escape(delta: u32, data: &[u8]) -> TrackEvent<'_> {
+		event(delta, TrackEventKind::Escape(data))
 	}
 
 	fn tempo(delta: u32, us_per_beat: u32) -> TrackEvent<'static> {
@@ -231,6 +269,39 @@ mod tests {
 			metrical(vec![vec![event(0, TrackEventKind::SysEx(&[0x7E, 0x7F, 0x09, 0x01, 0xF7])), end_of_track(0)]]);
 		let song = parse(&bytes).unwrap();
 		assert_eq!(song.events[0].kind, EventKind::SysEx(vec![0x7E, 0x7F, 0x09, 0x01]));
+	}
+
+	#[test]
+	fn split_sysex_is_reassembled_at_the_final_chunk() {
+		let bytes = metrical(vec![vec![
+			sysex(0, &[0x7E, 0x7F]),
+			note_on(480, 60, 100),
+			escape(0, &[0x09]),
+			escape(480, &[0x01, 0xF7]),
+			end_of_track(0),
+		]]);
+		let song = parse(&bytes).unwrap();
+		let sysex: Vec<_> = song.events.iter().filter(|e| matches!(e.kind, EventKind::SysEx(_))).collect();
+		assert_eq!(sysex.len(), 1);
+		assert_eq!(sysex[0].kind, EventKind::SysEx(vec![0x7E, 0x7F, 0x09, 0x01]));
+		assert_eq!(sysex[0].at_us, 1_000_000);
+	}
+
+	#[test]
+	fn escape_without_a_pending_sysex_is_dropped() {
+		let bytes = metrical(vec![vec![escape(0, &[0xF3, 0x05]), end_of_track(0)]]);
+		let song = parse(&bytes).unwrap();
+		assert!(song.events.is_empty());
+	}
+
+	#[test]
+	fn unterminated_sysex_is_dropped_at_the_end_of_its_track() {
+		let bytes = metrical(vec![
+			vec![sysex(0, &[0x7E, 0x7F]), end_of_track(0)],
+			vec![escape(0, &[0x09, 0x01, 0xF7]), end_of_track(0)],
+		]);
+		let song = parse(&bytes).unwrap();
+		assert!(song.events.is_empty());
 	}
 
 	#[test]
