@@ -39,7 +39,7 @@ pub fn parse(bytes: &[u8]) -> Result<Song, SmfError> {
 			if let TrackEventKind::Meta(MetaMessage::TrackName(name)) = event.kind
 				&& title.is_empty()
 			{
-				title = String::from_utf8_lossy(name).trim().to_owned();
+				String::from_utf8_lossy(name).trim().clone_into(&mut title);
 			}
 			raw.push((tick, event.kind));
 		}
@@ -55,7 +55,7 @@ pub fn parse(bytes: &[u8]) -> Result<Song, SmfError> {
 		duration_us = duration_us.max(at_us);
 		match kind {
 			TrackEventKind::Meta(MetaMessage::Tempo(us_per_beat)) => {
-				clock.set_tempo(tick, u64::from(us_per_beat.as_int()))
+				clock.set_tempo(tick, u64::from(us_per_beat.as_int()));
 			}
 			TrackEventKind::Midi { channel, message } => events.push(TimedEvent {
 				at_us,
@@ -99,7 +99,7 @@ struct TickClock {
 }
 
 impl TickClock {
-	fn new(timing: Timing) -> Self {
+	const fn new(timing: Timing) -> Self {
 		Self { timing, us_per_beat: DEFAULT_US_PER_BEAT, anchor_tick: 0, anchor_us: 0 }
 	}
 
