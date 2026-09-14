@@ -50,7 +50,7 @@ pub struct OutputDevice {
 	pub selection: OutputSelection,
 }
 
-/// Joins the multithreaded apartment; call once on every thread that touches the API.
+/// Joins the multithreaded apartment; call once on every thread that opens a connection.
 pub fn init() -> windows_core::Result<()> {
 	windows_core::init_mta()
 }

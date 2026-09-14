@@ -17,3 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   to the playlist of the running window, which comes to the front. They start playing only when
   nothing is playing
 - An application icon and version information in the executable
+
+### Changed
+
+- The Device menu looks for MIDI outputs every time it opens, so the Refresh Output Devices
+  item and its F5 shortcut are gone

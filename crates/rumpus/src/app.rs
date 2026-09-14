@@ -7,7 +7,7 @@ use std::{
 };
 
 use rumpus_core::{
-	config::AppConfig,
+	config::{AppConfig, OutputSelection},
 	playlist::Playlist,
 	time_format::position_text,
 	transport::{MAX_RATE, MAX_TRANSPOSE, MIN_RATE, State},
@@ -19,7 +19,7 @@ use crate::{
 	dialogs,
 	ipc::{self, IpcCommand},
 	menu::{self, ids},
-	midi::backend::OutputDevice,
+	midi::backend::{self, OutputDevice},
 	player::{self, Command, Player, PlayerEvent},
 	win32::Windows::Win32::{HWND, SetForegroundWindow},
 };
@@ -59,6 +59,8 @@ struct UiState {
 	transpose: i8,
 	/// Whether an output is selected, so files can be loaded and played.
 	ready: bool,
+	/// Whether the service has been probed, so outputs can be listed on the UI thread.
+	probed: bool,
 	/// Files opened before the service was ready, played once it is.
 	pending_files: Vec<PathBuf>,
 	/// Announce the next position report, because the user just sought.
@@ -132,6 +134,10 @@ impl App {
 		app.set_ready(false);
 
 		frame.on_menu_selected(|event| with_app(|app| app.on_command(event.get_id())));
+		app.device_menu.bind_internal(EventType::MENU_OPEN, |event| {
+			with_app(Self::reload_outputs);
+			event.skip(true);
+		});
 		playlist_box.on_selection_changed(|_| with_app(Self::on_playlist_selection));
 		playlist_box.on_item_double_clicked(|_| with_app(Self::play_selected));
 		playlist_box.bind_internal(EventType::CHAR_HOOK, |event| {
@@ -210,7 +216,6 @@ impl App {
 		for id in ids::PLAYBACK {
 			self.menu_bar.enable_item(id, ready);
 		}
-		self.menu_bar.enable_item(ids::REFRESH_DEVICES, ready);
 	}
 
 	fn on_player_event(&self, event: PlayerEvent) {
@@ -249,7 +254,34 @@ impl App {
 		}
 	}
 
+	/// Handles the outputs found by the probe: selects the persisted one, or the first.
 	fn on_outputs(&self, outputs: Vec<OutputDevice>) {
+		self.state.borrow_mut().probed = true;
+		let in_use = self.show_outputs(outputs);
+		if self.state.borrow().outputs.is_empty() {
+			self.frame.set_status_text("No MIDI output devices found", 0);
+			self.announce("No MIDI output devices found.");
+			return;
+		}
+		let selected = in_use.unwrap_or(0);
+		self.device_menu.check_item(ids::device_id(selected), true);
+		self.select_output(selected);
+		self.set_ready(true);
+		self.frame.set_status_text("Stopped", 0);
+		let pending = std::mem::take(&mut self.state.borrow_mut().pending_files);
+		self.open_files(pending, true);
+	}
+
+	/// Lists the outputs again as the Device menu opens, leaving the selection alone.
+	fn reload_outputs(&self) {
+		if !self.state.borrow().probed {
+			return;
+		}
+		self.show_outputs(backend::outputs(false));
+	}
+
+	/// Stores `outputs` and rebuilds the Device menu from them, checking the one in use.
+	fn show_outputs(&self, outputs: Vec<OutputDevice>) -> Option<usize> {
 		for output in &outputs {
 			tracing::info!(
 				name = output.name,
@@ -258,25 +290,13 @@ impl App {
 				"output"
 			);
 		}
-		let selected = {
-			let mut state = self.state.borrow_mut();
-			let persisted = state.config.output.clone();
-			let selected = persisted.and_then(|wanted| outputs.iter().position(|o| o.selection == wanted)).unwrap_or(0);
-			state.outputs = outputs;
-			selected
-		};
-		let names: Vec<String> = self.state.borrow().outputs.iter().map(|o| o.name.clone()).collect();
-		menu::populate_devices(&self.device_menu, &names, selected);
-		if names.is_empty() {
-			self.frame.set_status_text("No MIDI output devices found", 0);
-			self.announce("No MIDI output devices found.");
-			return;
-		}
-		self.select_output(selected);
-		self.set_ready(true);
-		self.frame.set_status_text("Stopped", 0);
-		let pending = std::mem::take(&mut self.state.borrow_mut().pending_files);
-		self.open_files(pending, true);
+		let mut state = self.state.borrow_mut();
+		let in_use = output_in_use(&outputs, state.config.output.as_ref());
+		state.outputs = outputs;
+		let names: Vec<String> = state.outputs.iter().map(|o| o.name.clone()).collect();
+		drop(state);
+		menu::populate_devices(&self.device_menu, &names, in_use);
+		in_use
 	}
 
 	fn select_output(&self, index: usize) {
@@ -363,7 +383,6 @@ impl App {
 			ids::TRANSPOSE_DOWN => self.set_transpose(i32::from(self.state.borrow().transpose) - 1, true),
 			ids::TRANSPOSE_UP => self.set_transpose(i32::from(self.state.borrow().transpose) + 1, true),
 			ids::TRANSPOSE_RESET => self.set_transpose(0, true),
-			ids::REFRESH_DEVICES => self.send(Command::RefreshOutputs),
 			ids::ABOUT => dialogs::show_about(&self.frame),
 			id => {
 				if let Some(index) = ids::device_index(id) {
@@ -561,6 +580,12 @@ fn transpose_text(semitones: i8) -> String {
 	}
 }
 
+/// The index of `selection` among `outputs`, when it is still listed.
+fn output_in_use(outputs: &[OutputDevice], selection: Option<&OutputSelection>) -> Option<usize> {
+	let wanted = selection?;
+	outputs.iter().position(|o| &o.selection == wanted)
+}
+
 #[cfg(test)]
 mod tests {
 	use super::*;
@@ -576,5 +601,25 @@ mod tests {
 	fn tempo_range_is_whole_percent() {
 		assert_eq!(percent(MIN_RATE), 25);
 		assert_eq!(percent(MAX_RATE), 400);
+	}
+
+	fn output(endpoint_id: &str, group_index: u8) -> OutputDevice {
+		OutputDevice {
+			name: endpoint_id.to_owned(),
+			selection: OutputSelection { endpoint_id: endpoint_id.to_owned(), group_index },
+		}
+	}
+
+	#[test]
+	fn output_in_use_is_found_by_selection() {
+		let outputs = [output("a", 0), output("b", 0), output("b", 1)];
+		assert_eq!(output_in_use(&outputs, Some(&outputs[2].selection)), Some(2));
+	}
+
+	#[test]
+	fn output_in_use_is_none_when_unplugged_or_unset() {
+		let outputs = [output("a", 0)];
+		assert_eq!(output_in_use(&outputs, Some(&output("b", 0).selection)), None);
+		assert_eq!(output_in_use(&outputs, None), None);
 	}
 }

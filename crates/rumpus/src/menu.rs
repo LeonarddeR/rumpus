@@ -23,7 +23,6 @@ pub mod ids {
 	pub const TRANSPOSE_DOWN: i32 = 5030;
 	pub const TRANSPOSE_UP: i32 = 5031;
 	pub const TRANSPOSE_RESET: i32 = 5032;
-	pub const REFRESH_DEVICES: i32 = 5040;
 	pub const ABOUT: i32 = 5050;
 	/// The disabled placeholder shown in the Device menu when no output exists.
 	pub const NO_DEVICES: i32 = 5041;
@@ -94,9 +93,6 @@ const TRANSPOSE_ITEMS: &[(i32, &str, &str)] = &[
 	(ids::TRANSPOSE_RESET, "&Reset Transpose\tCtrl+Shift+0", "Play at the written pitch"),
 ];
 
-const DEVICE_ITEMS: &[(i32, &str, &str)] =
-	&[(ids::REFRESH_DEVICES, "&Refresh Output Devices\tF5", "Look for MIDI outputs again")];
-
 const HELP_ITEMS: &[(i32, &str, &str)] = &[(ids::ABOUT, "&About Rumpus", "Version and license information")];
 
 fn menu_builder(items: &[(i32, &str, &str)]) -> wxdragon::menus::menu::MenuBuilder {
@@ -111,9 +107,9 @@ fn menu(items: &[(i32, &str, &str)]) -> Menu {
 	menu_builder(items).build()
 }
 
-/// Replaces the output items in the Device menu with one radio item per name, checking
-/// `selected`, or a disabled placeholder when there are none.
-pub fn populate_devices(device_menu: &Menu, names: &[String], selected: usize) {
+/// Replaces the items in the Device menu with one radio item per name, checking `in_use` when
+/// given, or a disabled placeholder when there are no names.
+pub fn populate_devices(device_menu: &Menu, names: &[String], in_use: Option<usize>) {
 	for item in device_menu.get_menu_items() {
 		let id = item.get_item_id();
 		if id == ids::NO_DEVICES || ids::device_index(id).is_some() {
@@ -128,12 +124,20 @@ pub fn populate_devices(device_menu: &Menu, names: &[String], selected: usize) {
 	for (index, name) in names.iter().take(ids::MAX_DEVICES).enumerate() {
 		device_menu.append(ids::device_id(index), &device_label(name), "Send MIDI to this output", ItemKind::Radio);
 	}
-	device_menu.check_item(ids::device_id(selected), true);
+	if let Some(index) = in_use {
+		device_menu.check_item(ids::device_id(index), true);
+	}
 }
 
 /// Doubles ampersands so device names do not become mnemonics.
 fn device_label(name: &str) -> String {
 	name.replace('&', "&&")
+}
+
+fn device_menu() -> Menu {
+	let menu = Menu::builder().build();
+	populate_devices(&menu, &[], None);
+	menu
 }
 
 #[must_use]
@@ -145,7 +149,7 @@ pub fn create_menu_bar() -> MenuBar {
 		.append(menu(PLAYBACK_ITEMS), "&Playback")
 		.append(menu(TEMPO_ITEMS), "&Tempo")
 		.append(menu(TRANSPOSE_ITEMS), "T&ranspose")
-		.append(menu_builder(DEVICE_ITEMS).append_separator().build(), "&Device")
+		.append(device_menu(), "&Device")
 		.append(menu(HELP_ITEMS), "&Help")
 		.build()
 }
@@ -157,7 +161,7 @@ mod tests {
 	use super::*;
 
 	fn all_items() -> Vec<(i32, &'static str, &'static str)> {
-		[FILE_ITEMS, PLAYBACK_ITEMS, TEMPO_ITEMS, TRANSPOSE_ITEMS, DEVICE_ITEMS, HELP_ITEMS].concat()
+		[FILE_ITEMS, PLAYBACK_ITEMS, TEMPO_ITEMS, TRANSPOSE_ITEMS, HELP_ITEMS].concat()
 	}
 
 	#[test]
@@ -183,7 +187,6 @@ mod tests {
 			assert!(!ids.contains(&id), "{id}");
 		}
 		assert_eq!(ids::device_index(ids::NO_DEVICES), None);
-		assert_eq!(ids::device_index(ids::REFRESH_DEVICES), None);
 		assert!(!ids.contains(&ids::NO_DEVICES));
 	}
 

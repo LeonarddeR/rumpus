@@ -25,7 +25,6 @@ const POSITION_INTERVAL: Duration = Duration::from_millis(250);
 #[derive(Clone, Debug, PartialEq)]
 pub enum Command {
 	Probe,
-	RefreshOutputs,
 	SelectOutput(OutputSelection),
 	Load(PathBuf),
 	Play,
@@ -147,7 +146,6 @@ impl<'a> Worker<'a> {
 				Ok(()) => self.emit(PlayerEvent::Outputs(backend::outputs(false))),
 				Err(e) => self.emit(PlayerEvent::Unavailable(e.to_string())),
 			},
-			Command::RefreshOutputs => self.emit(PlayerEvent::Outputs(backend::outputs(false))),
 			Command::SelectOutput(output) => self.select_output(&output),
 			Command::Load(path) => self.load(&path),
 			Command::Play => self.with_transport(Transport::play),

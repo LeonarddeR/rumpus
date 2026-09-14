@@ -123,12 +123,12 @@ publishes.
 | Announce position | Ctrl+I |
 | Tempo down, up, reset | Ctrl+Down, Ctrl+Up, Ctrl+0 |
 | Transpose down, up, reset | Ctrl+Shift+Down, Ctrl+Shift+Up, Ctrl+Shift+0 |
-| Refresh output devices | F5 |
 | Exit | Ctrl+Q |
 
 Tempo and transpose are also spin controls in the window. The MIDI output is chosen from the
-Device menu, which lists every output as a radio item. The current position is shown as a text
-field and announced on request, so playback never interrupts a screen reader.
+Device menu, which lists every output available at the moment it opens as a radio item. The
+current position is shown as a text field and announced on request, so playback never interrupts
+a screen reader.
 
 ## License
 
