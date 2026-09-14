@@ -14,7 +14,20 @@ fn main() {
 		.active_code_page(ActiveCodePage::Utf8)
 		.dpi_awareness(DpiAwareness::PerMonitorV2);
 	embed_manifest(manifest).expect("unable to embed manifest");
+	embed_icon();
 	copy_sdk_runtime();
+}
+
+/// Embeds the application icon and the version information shown in the executable's properties.
+fn embed_icon() {
+	let icon = "../../assets/icon/rumpus.ico";
+	println!("cargo:rerun-if-changed={icon}");
+	let mut resource = winresource::WindowsResource::new();
+	resource.set_icon(icon);
+	resource.set("ProductName", "Rumpus");
+	resource.set("FileDescription", env!("CARGO_PKG_DESCRIPTION"));
+	resource.set("LegalCopyright", "Copyright (C) 2026 Leonard de Ruijter");
+	resource.compile().expect("unable to embed icon resource");
 }
 
 /// Copies the Windows MIDI Services runtime DLL next to the executables, where `WinRT` activation

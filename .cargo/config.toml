@@ -1,5 +1,6 @@
 [alias]
 bindgen = "run --release --manifest-path tools/bindgen/Cargo.toml"
+xtask = "run -p xtask --"
 
 [target.x86_64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]

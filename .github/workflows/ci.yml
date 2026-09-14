@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ["[0-9]*.[0-9]*.[0-9]*"]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -25,8 +26,8 @@ jobs:
           components: rustfmt, clippy
       - uses: swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
-      - run: cargo clippy -p rumpus-core --all-targets -- -D warnings
-      - run: cargo test -p rumpus-core
+      - run: cargo clippy -p rumpus-core -p xtask --all-targets -- -D warnings
+      - run: cargo test -p rumpus-core -p xtask
 
   app:
     name: App (windows-x64)
@@ -41,6 +42,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+          target: x86_64-pc-windows-msvc
       - uses: swatinem/rust-cache@v2
         with:
           cache-all-crates: true
@@ -63,4 +65,119 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           cargo test -p rumpus
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          cargo build --release -p rumpus
+          cargo xtask build-windows --target x86_64-pc-windows-msvc
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rumpus-windows-x64
+          path: |
+            target/x86_64-pc-windows-msvc/release/rumpus.exe
+            target/x86_64-pc-windows-msvc/release/Windows.Devices.Midi2.dll
+            target/x86_64-pc-windows-msvc/release/Windows.Devices.Midi2.pri
+          retention-days: 30
+
+  installer:
+    name: Windows installer
+    needs: [app]
+    if: github.event_name != 'pull_request'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: swatinem/rust-cache@v2
+        with:
+          key: installer
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: rumpus-windows-x64
+          path: target/dist/windows/x86_64
+      - name: Ensure Inno Setup
+        shell: pwsh
+        run: |
+          if (-not (Get-Command ISCC.exe -ErrorAction SilentlyContinue) -and
+              -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+      - run: cargo xtask dist --staging target/dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rumpus-windows-setup
+          path: target/rumpus_setup-x64.exe
+          retention-days: 30
+
+  dev-release:
+    name: Dev release
+    needs: [installer]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'LeonarddeR/rumpus'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # Full history and tags, for the commit list since the last tag.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: rumpus-windows-setup
+          path: artifacts
+      - name: Generate release notes
+        id: notes
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 --match '[0-9]*' 2>/dev/null || echo "")
+          if [ -z "$PREV_TAG" ]; then
+            COMMITS=$(git log --abbrev=7 --pretty=format:"- %h %s" -20 HEAD)
+          else
+            COMMITS=$(git log --abbrev=7 --pretty=format:"- %h %s" "$PREV_TAG"..HEAD)
+          fi
+          {
+            echo "commits<<EOF"
+            echo "$COMMITS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: latest
+          name: Development Build
+          prerelease: true
+          body: |
+            ## Commits since last release
+            ${{ steps.notes.outputs.commits }}
+          files: artifacts/rumpus_setup-x64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    name: Release
+    needs: [installer]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # The tagged tree supplies CHANGELOG.md for the release body.
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: rumpus-windows-setup
+          path: artifacts
+      # The body is the CHANGELOG.md section for this version: everything between its
+      # "## [X.Y.Z]" heading and the next "## [" heading.
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v ver="$VERSION" '
+            /^## \[/ { if (found) exit; if (index($0, "## [" ver "]") == 1) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > release_body.md
+          if ! grep -q '[^[:space:]]' release_body.md; then
+            echo "::error::CHANGELOG.md has no section for version $VERSION"
+            exit 1
+          fi
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: artifacts/rumpus_setup-x64.exe
+          body_path: release_body.md
+          name: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
