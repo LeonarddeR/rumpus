@@ -1,0 +1,23 @@
+[package]
+name = "rumpus-core"
+description = "MIDI file playback logic for Rumpus: SMF parsing, UMP building, transport, playlist, config"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+dirs = "7.0"
+midi2 = { version = "0.11", default-features = false, features = ["std", "channel-voice1", "sysex7"] }
+midly = "0.5"
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+toml = "1"
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

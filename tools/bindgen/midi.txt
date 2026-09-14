@@ -1,0 +1,21 @@
+--in
+    default
+    sdk/Windows.Devices.Midi2.winmd
+
+--out crates/rumpus/src/midi/bindings.rs
+
+--filter
+    Windows.Devices.Midi2.MidiApi::{EnsureServiceAvailable, GetCurrentlySelectedApiMode}
+    Windows.Devices.Midi2.MidiApiMode
+    Windows.Devices.Midi2.MidiClock::{Now, TimestampFrequency}
+    Windows.Devices.Midi2.MidiSession::{Create, CreateEndpointConnection, DisconnectEndpointConnection, Close}
+    Windows.Devices.Midi2.MidiEndpointConnection::{Open, ConnectionId, SendSingleMessageWords, SendMultipleMessagesWordList, MessageReceived}
+    Windows.Devices.Midi2.MidiSendMessageResults
+    Windows.Devices.Midi2.MidiMessageReceivedEventArgs::{Timestamp, PeekFirstWord}
+    Windows.Devices.Midi2.MidiGroup::{Index}
+    Windows.Devices.Midi2.Enumeration.MidiEndpointDeviceInformation::{FindAll, EndpointDeviceId, Name, GetNameTable}
+    Windows.Devices.Midi2.Enumeration.MidiEndpointDeviceInformationFilters
+    Windows.Devices.Midi2.Enumeration.MidiEndpointDeviceInformationSortOrder
+    Windows.Devices.Midi2.Enumeration.Midi1PortNameTableEntry::{Group, Flow, CustomName, LegacyCompatibleName, NewStyleName}
+    Windows.Devices.Midi2.Enumeration.Midi1PortFlow
+    Windows.Devices.Midi2.Diagnostics.MidiDiagnostics::{DiagnosticsLoopbackAEndpointDeviceId, DiagnosticsLoopbackBEndpointDeviceId}

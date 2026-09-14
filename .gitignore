@@ -1,0 +1,5 @@
+/target
+/tools/bindgen/target
+/sdk/runtimes/
+/sdk/*.nupkg
+/.claude/

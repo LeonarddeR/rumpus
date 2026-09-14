@@ -1,0 +1,26 @@
+[package]
+name = "rumpus"
+description = "Accessible MIDI file player for Windows MIDI Services"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+live-region = "0.3"
+rumpus-core = { path = "../rumpus-core" }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std"] }
+windows-collections = "0.100"
+windows-core = "0.100"
+windows-future = "0.100"
+wx-utils = "0.3"
+wxdragon = "0.9.21"
+
+[build-dependencies]
+embed-manifest = "1.5"
+
+[lints]
+workspace = true

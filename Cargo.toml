@@ -1,0 +1,32 @@
+[workspace]
+members = ["crates/rumpus", "crates/rumpus-core"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.98"
+license = "MIT"
+repository = "https://github.com/leonardder/rumpus"
+
+# Lint policy for every crate in the workspace; each member opts in with `[lints] workspace = true`.
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery = { level = "warn", priority = -1 }
+# Rumpus ships as an application, not a published library, so there is no downstream caller to
+# write `# Panics`/`# Errors` sections for.
+missing_panics_doc = "allow"
+missing_errors_doc = "allow"
+too_many_lines = "allow"
+struct_excessive_bools = "allow"
+items_after_statements = "allow"
+too_long_first_doc_paragraph = "allow"
+similar_names = "allow"
+
+[profile.release]
+strip = true
+opt-level = "s"
+lto = true
+panic = "abort"
+codegen-units = 1

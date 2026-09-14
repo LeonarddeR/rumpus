@@ -1,0 +1,11 @@
+[package]
+name = "rumpus_bindgen"
+description = "Regenerates Rumpus's committed windows-bindgen output"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[dependencies]
+windows-bindgen = "0.100.0"
+
+[workspace]
