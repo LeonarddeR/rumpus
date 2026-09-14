@@ -1,0 +1,17 @@
+--out crates/rumpus/tests/common/win32.rs
+
+--filter
+    INPUT
+    INPUT_KEYBOARD
+    KEYBDINPUT
+    KEYEVENTF_EXTENDEDKEY
+    KEYEVENTF_KEYUP
+    MAPVK_VK_TO_VSC
+    VK_CONTROL
+    VK_DOWN
+    VK_RETURN
+    VK_SHIFT
+    VK_UP
+
+    MapVirtualKeyW
+    SendInput

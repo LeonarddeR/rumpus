@@ -18,6 +18,7 @@ use super::bindings::Windows::Devices::Midi2::{
 };
 
 const US_PER_SECOND: u128 = 1_000_000;
+const LOOPBACK_OUTPUTS_ENV: &str = "RUMPUS_LOOPBACK_OUTPUTS";
 
 /// Why Windows MIDI Services cannot be used on this PC.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -75,12 +76,18 @@ pub const fn probe_exit_code(result: &Result<(), Unavailable>) -> i32 {
 }
 
 /// Lists output ports, one per destination entry of each endpoint's MIDI 1.0 port name table,
-/// or the endpoint itself on group 1 when it publishes no table.
-pub fn outputs(include_diagnostics: bool) -> Vec<OutputDevice> {
-	let mut filters = MidiEndpointDeviceInformationFilters::AllStandardEndpoints;
-	if include_diagnostics {
-		filters |= MidiEndpointDeviceInformationFilters::DiagnosticLoopback;
-	}
+/// or the endpoint itself on group 1 when it publishes no table. Only the diagnostic loopback
+/// endpoints are listed while `RUMPUS_LOOPBACK_OUTPUTS` is set.
+pub fn outputs() -> Vec<OutputDevice> {
+	let filters = if std::env::var_os(LOOPBACK_OUTPUTS_ENV).is_some() {
+		MidiEndpointDeviceInformationFilters::DiagnosticLoopback
+	} else {
+		MidiEndpointDeviceInformationFilters::AllStandardEndpoints
+	};
+	outputs_with(filters)
+}
+
+fn outputs_with(filters: MidiEndpointDeviceInformationFilters) -> Vec<OutputDevice> {
 	let Some(endpoints) =
 		MidiEndpointDeviceInformation::FindAll3(MidiEndpointDeviceInformationSortOrder::Name, filters)
 	else {
@@ -267,7 +274,7 @@ mod tests {
 	fn outputs_list_the_diagnostic_loopback_when_asked() {
 		init().unwrap();
 		probe().unwrap();
-		let outputs = outputs(true);
+		let outputs = outputs_with(MidiEndpointDeviceInformationFilters::DiagnosticLoopback);
 		assert!(outputs.iter().any(|o| o.selection.endpoint_id == loopback_a_id()), "{outputs:?}");
 		assert!(outputs.iter().all(|o| !o.name.is_empty()));
 	}

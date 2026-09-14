@@ -22,3 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The Device menu looks for MIDI outputs every time it opens, so the Refresh Output Devices
   item and its F5 shortcut are gone
+
+### Fixed
+
+- The tempo and transpose shortcuts (Ctrl+Up, Ctrl+Down, Ctrl+Shift+Up, Ctrl+Shift+Down) no
+  longer crash the app

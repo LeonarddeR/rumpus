@@ -6,6 +6,7 @@ fn main() {
 
 	windows_bindgen::bindgen(["--etc", "tools/bindgen/midi.txt"]);
 	windows_bindgen::bindgen(["--etc", "tools/bindgen/win32.txt"]);
+	windows_bindgen::bindgen(["--etc", "tools/bindgen/tests.txt"]);
 
 	println!("Finished in {:.2}s", time.elapsed().as_secs_f32());
 }

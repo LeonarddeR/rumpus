@@ -12,7 +12,7 @@ publish = false
 live-region = "0.3"
 rumpus-core = { path = "../rumpus-core" }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["env-filter", "fmt", "std"] }
 windows-collections = "0.100"
 windows-core = "0.100"
 windows-future = "0.100"
@@ -27,15 +27,16 @@ winresource = "0.1"
 workspace = true
 
 [dev-dependencies]
-midly = "0.5"
 tempfile = "3"
+uiautomation = "0.25"
 
 [package.metadata.release]
-# cargo-release accepts a single hook command; cmd /c chains the checks.
+# cargo-release accepts a single hook command; cmd /c chains the checks. The last one drives the
+# real GUI through UI Automation, so it takes over the desktop until it finishes.
 pre-release-hook = [
 	"cmd",
 	"/c",
-	"cargo fmt --all -- --check && cargo clippy -p rumpus-core -p xtask --all-targets -- -D warnings && cargo test -p rumpus-core -p xtask",
+	"cargo fmt --all -- --check && cargo clippy -p rumpus-core -p xtask --all-targets -- -D warnings && cargo test -p rumpus-core -p xtask && cargo test -p rumpus -- --ignored",
 ]
 # The file path resolves against this crate's directory.
 pre-release-replacements = [

@@ -21,6 +21,7 @@ mod win32;
 use std::{ffi::OsString, path::PathBuf};
 
 use rumpus_core::config::AppConfig;
+use tracing_subscriber::EnvFilter;
 
 use crate::midi::backend;
 
@@ -70,12 +71,14 @@ fn absolute(path: PathBuf) -> PathBuf {
 	std::path::absolute(&path).unwrap_or(path)
 }
 
-/// Logs to a file in the config directory, since a windows-subsystem process has no console.
+/// Logs to a file in the config directory, since a windows-subsystem process has no console;
+/// `RUST_LOG` selects the level.
 fn init_logging() {
 	let Some(dir) = AppConfig::dir() else { return };
 	if std::fs::create_dir_all(&dir).is_err() {
 		return;
 	}
 	let Ok(file) = std::fs::File::create(dir.join(LOG_FILE)) else { return };
-	let _ = tracing_subscriber::fmt().with_writer(file).with_ansi(false).try_init();
+	let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+	let _ = tracing_subscriber::fmt().with_env_filter(filter).with_writer(file).with_ansi(false).try_init();
 }

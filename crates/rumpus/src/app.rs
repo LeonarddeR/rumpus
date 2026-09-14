@@ -277,7 +277,7 @@ impl App {
 		if !self.state.borrow().probed {
 			return;
 		}
-		self.show_outputs(backend::outputs(false));
+		self.show_outputs(backend::outputs());
 	}
 
 	/// Stores `outputs` and rebuilds the Device menu from them, checking the one in use.
@@ -377,11 +377,11 @@ impl App {
 			ids::SEEK_BACK_FAR => self.seek(-SEEK_FAR_STEP_US),
 			ids::SEEK_FORWARD_FAR => self.seek(SEEK_FAR_STEP_US),
 			ids::ANNOUNCE_POSITION => self.announce_position(),
-			ids::TEMPO_DOWN => self.set_tempo(self.state.borrow().tempo_percent - TEMPO_STEP, true),
-			ids::TEMPO_UP => self.set_tempo(self.state.borrow().tempo_percent + TEMPO_STEP, true),
+			ids::TEMPO_DOWN => self.step_tempo(-TEMPO_STEP),
+			ids::TEMPO_UP => self.step_tempo(TEMPO_STEP),
 			ids::TEMPO_RESET => self.set_tempo(DEFAULT_TEMPO, true),
-			ids::TRANSPOSE_DOWN => self.set_transpose(i32::from(self.state.borrow().transpose) - 1, true),
-			ids::TRANSPOSE_UP => self.set_transpose(i32::from(self.state.borrow().transpose) + 1, true),
+			ids::TRANSPOSE_DOWN => self.step_transpose(-1),
+			ids::TRANSPOSE_UP => self.step_transpose(1),
 			ids::TRANSPOSE_RESET => self.set_transpose(0, true),
 			ids::ABOUT => dialogs::show_about(&self.frame),
 			id => {
@@ -511,6 +511,18 @@ impl App {
 	fn announce_position(&self) {
 		let state = self.state.borrow();
 		self.announce(&position_text(state.position_us, state.duration_us));
+	}
+
+	/// Moves the tempo by `delta` percent points from where it is now.
+	fn step_tempo(&self, delta: i32) {
+		let percent_value = self.state.borrow().tempo_percent + delta;
+		self.set_tempo(percent_value, true);
+	}
+
+	/// Moves the transposition by `delta` semitones from where it is now.
+	fn step_transpose(&self, delta: i32) {
+		let semitones = i32::from(self.state.borrow().transpose) + delta;
+		self.set_transpose(semitones, true);
 	}
 
 	fn set_tempo(&self, percent_value: i32, announce: bool) {

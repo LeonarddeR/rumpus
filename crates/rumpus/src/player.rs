@@ -143,7 +143,7 @@ impl<'a> Worker<'a> {
 	fn handle(&mut self, command: Command) {
 		match command {
 			Command::Probe => match backend::probe() {
-				Ok(()) => self.emit(PlayerEvent::Outputs(backend::outputs(false))),
+				Ok(()) => self.emit(PlayerEvent::Outputs(backend::outputs())),
 				Err(e) => self.emit(PlayerEvent::Unavailable(e.to_string())),
 			},
 			Command::SelectOutput(output) => self.select_output(&output),
@@ -263,53 +263,15 @@ impl<'a> Worker<'a> {
 mod tests {
 	use std::{sync::mpsc, time::Duration};
 
-	use midly::{Format, Header, MetaMessage, MidiMessage, Smf, Timing, TrackEvent, TrackEventKind, num::*};
-	use rumpus_core::{song::ChannelMessage, transport::State, ump::channel_voice};
+	use rumpus_core::{
+		song::ChannelMessage,
+		testing::{write_long_note, write_three_notes},
+		transport::State,
+		ump::channel_voice,
+	};
 
 	use super::*;
 	use crate::midi::backend::{self, Session};
-
-	fn write_song(dir: &std::path::Path) -> PathBuf {
-		let note = |delta: u32, key: u8, vel: u8| TrackEvent {
-			delta: u28::new(delta),
-			kind: TrackEventKind::Midi {
-				channel: u4::new(0),
-				message: MidiMessage::NoteOn { key: u7::new(key), vel: u7::new(vel) },
-			},
-		};
-		let track = vec![
-			note(0, 60, 100),
-			note(480, 60, 0),
-			note(0, 62, 100),
-			note(480, 62, 0),
-			note(0, 64, 100),
-			note(480, 64, 0),
-			TrackEvent { delta: u28::new(0), kind: TrackEventKind::Meta(MetaMessage::EndOfTrack) },
-		];
-		let smf =
-			Smf { header: Header::new(Format::SingleTrack, Timing::Metrical(u15::new(480))), tracks: vec![track] };
-		let path = dir.join("three notes.mid");
-		smf.save(&path).unwrap();
-		path
-	}
-
-	/// One note on channel 3 that sounds for ten seconds.
-	fn write_long_note(dir: &std::path::Path) -> PathBuf {
-		let event = |delta: u32, message: MidiMessage| TrackEvent {
-			delta: u28::new(delta),
-			kind: TrackEventKind::Midi { channel: u4::new(2), message },
-		};
-		let track = vec![
-			event(0, MidiMessage::NoteOn { key: u7::new(48), vel: u7::new(100) }),
-			event(9600, MidiMessage::NoteOff { key: u7::new(48), vel: u7::new(0) }),
-			TrackEvent { delta: u28::new(0), kind: TrackEventKind::Meta(MetaMessage::EndOfTrack) },
-		];
-		let smf =
-			Smf { header: Header::new(Format::SingleTrack, Timing::Metrical(u15::new(480))), tracks: vec![track] };
-		let path = dir.join("long note.mid");
-		smf.save(&path).unwrap();
-		path
-	}
 
 	fn collect_until(rx: &mpsc::Receiver<PlayerEvent>, stop: impl Fn(&PlayerEvent) -> bool) -> Vec<PlayerEvent> {
 		let mut events = Vec::new();
@@ -365,7 +327,7 @@ mod tests {
 	fn plays_a_file_through_the_loopback_and_reports_progress() {
 		backend::init().unwrap();
 		let dir = tempfile::tempdir().unwrap();
-		let path = write_song(dir.path());
+		let path = write_three_notes(dir.path());
 		let (event_tx, events) = mpsc::channel();
 		let player = spawn(move |event| {
 			let _ = event_tx.send(event);
