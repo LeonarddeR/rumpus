@@ -18,6 +18,8 @@ use crate::midi::backend::{self, Connection, OutputDevice, ServiceClock, Session
 
 const SESSION_NAME: &str = "Rumpus";
 const IDLE_TIMEOUT: Duration = Duration::from_millis(250);
+/// Time given to the service to deliver the last scheduled messages before a connection closes.
+const DISCONNECT_GRACE: Duration = Duration::from_millis(20);
 const POSITION_INTERVAL: Duration = Duration::from_millis(250);
 
 #[derive(Clone, Debug, PartialEq)]
@@ -218,11 +220,20 @@ impl<'a> Worker<'a> {
 		}
 	}
 
-	/// Stops whatever is playing so nothing is left sounding when the connection goes away.
+	/// Stops whatever is playing and waits until the silence has been delivered, so nothing is
+	/// left sounding when the connection goes away.
 	fn silence(&mut self) {
-		if let Some(transport) = &mut self.transport {
-			transport.stop();
+		let Some(transport) = &mut self.transport else {
+			return;
+		};
+		transport.stop();
+		while transport.state() == State::Draining {
+			let Some(wake_us) = transport.pump().next_wake_us else {
+				break;
+			};
+			thread::sleep(Duration::from_micros(wake_us.saturating_sub(ServiceClock.now_us())));
 		}
+		thread::sleep(DISCONNECT_GRACE);
 	}
 
 	fn pump(&mut self) {
@@ -255,7 +266,7 @@ mod tests {
 	use std::{sync::mpsc, time::Duration};
 
 	use midly::{Format, Header, MetaMessage, MidiMessage, Smf, Timing, TrackEvent, TrackEventKind, num::*};
-	use rumpus_core::transport::State;
+	use rumpus_core::{song::ChannelMessage, transport::State, ump::channel_voice};
 
 	use super::*;
 	use crate::midi::backend::{self, Session};
@@ -284,6 +295,24 @@ mod tests {
 		path
 	}
 
+	/// One note on channel 3 that sounds for ten seconds.
+	fn write_long_note(dir: &std::path::Path) -> PathBuf {
+		let event = |delta: u32, message: MidiMessage| TrackEvent {
+			delta: u28::new(delta),
+			kind: TrackEventKind::Midi { channel: u4::new(2), message },
+		};
+		let track = vec![
+			event(0, MidiMessage::NoteOn { key: u7::new(48), vel: u7::new(100) }),
+			event(9600, MidiMessage::NoteOff { key: u7::new(48), vel: u7::new(0) }),
+			TrackEvent { delta: u28::new(0), kind: TrackEventKind::Meta(MetaMessage::EndOfTrack) },
+		];
+		let smf =
+			Smf { header: Header::new(Format::SingleTrack, Timing::Metrical(u15::new(480))), tracks: vec![track] };
+		let path = dir.join("long note.mid");
+		smf.save(&path).unwrap();
+		path
+	}
+
 	fn collect_until(rx: &mpsc::Receiver<PlayerEvent>, stop: impl Fn(&PlayerEvent) -> bool) -> Vec<PlayerEvent> {
 		let mut events = Vec::new();
 		loop {
@@ -294,6 +323,43 @@ mod tests {
 				return events;
 			}
 		}
+	}
+
+	#[test]
+	#[ignore = "needs the Windows MIDI Service"]
+	fn stopping_and_shutting_down_at_once_still_silences_the_output() {
+		backend::init().unwrap();
+		let dir = tempfile::tempdir().unwrap();
+		let path = write_long_note(dir.path());
+		let (event_tx, events) = mpsc::channel();
+		let player = spawn(move |event| {
+			let _ = event_tx.send(event);
+		});
+		let session = Session::open("Rumpus shutdown test").unwrap();
+		let receiver =
+			session.connect(&OutputSelection { endpoint_id: backend::loopback_b_id(), group_index: 0 }).unwrap();
+		let (word_tx, words) = mpsc::channel();
+		let _revoker = receiver.on_message(move |_, word| {
+			let _ = word_tx.send(word);
+		});
+		player.send(Command::SelectOutput(OutputSelection { endpoint_id: backend::loopback_a_id(), group_index: 0 }));
+		player.send(Command::Load(path));
+		player.send(Command::Play);
+		collect_until(&events, |e| matches!(e, PlayerEvent::State(State::Playing)));
+		player.send(Command::Stop);
+		player.shutdown();
+		let all_notes_off = channel_voice(0, 2, ChannelMessage::ControlChange { controller: 123, value: 0 });
+		let deadline = std::time::Instant::now() + Duration::from_secs(2);
+		let mut received = Vec::new();
+		while std::time::Instant::now() < deadline {
+			if let Ok(word) = words.recv_timeout(Duration::from_millis(100)) {
+				received.push(word);
+				if word == all_notes_off {
+					return;
+				}
+			}
+		}
+		panic!("all notes off never arrived; received {received:08X?}");
 	}
 
 	#[test]

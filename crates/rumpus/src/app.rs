@@ -69,7 +69,7 @@ pub struct App {
 	output_choice: Choice,
 	playlist_box: ListBox,
 	play_button: Button,
-	position_label: StaticText,
+	position_label: TextCtrl,
 	tempo_spin: SpinCtrl,
 	transpose_spin: SpinCtrl,
 	live_region: StaticText,
@@ -99,8 +99,9 @@ impl App {
 		}
 		sizer.add_sizer(&buttons, 0, SizerFlag::Left | SizerFlag::All, 4);
 
-		let position_label =
-			labelled(panel, sizer, "Position:", |p| StaticText::builder(p).with_label("0:00 / 0:00").build());
+		let position_label = labelled(panel, sizer, "Position:", |p| {
+			TextCtrl::builder(p).with_value("0:00 / 0:00").with_style(TextCtrlStyle::ReadOnly).build()
+		});
 		let tempo_spin = labelled(panel, sizer, "&Tempo (%):", |p| {
 			SpinCtrl::builder(p)
 				.with_range(percent(MIN_RATE), percent(MAX_RATE))
@@ -457,7 +458,7 @@ impl App {
 
 	fn refresh_position(&self) {
 		let state = self.state.borrow();
-		self.position_label.set_label(&position_text(state.position_us, state.duration_us));
+		self.position_label.set_value(&position_text(state.position_us, state.duration_us));
 	}
 
 	fn announce_position(&self) {

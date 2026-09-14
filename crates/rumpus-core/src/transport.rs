@@ -183,11 +183,14 @@ impl<C: Clock, S: Sink> Transport<C, S> {
 		self.song.duration_us
 	}
 
-	/// Replaces the song, silencing anything still playing, and rewinds to the start.
+	/// Replaces the song and rewinds to the start; anything still playing is silenced first and
+	/// the transport drains until that silence has landed.
 	pub fn load(&mut self, mut song: Song) {
-		if matches!(self.state, State::Playing | State::Draining) {
-			self.silence(self.clock.now_us());
-		}
+		let silence_at = match self.state {
+			State::Playing => Some(self.silence(self.clock.now_us())),
+			State::Draining => Some(self.drain_until_us),
+			State::Paused | State::Stopped => None,
+		};
 		song.events.sort_by_key(|e| e.at_us);
 		self.channels_used = song
 			.events
@@ -198,10 +201,13 @@ impl<C: Clock, S: Sink> Transport<C, S> {
 			})
 			.collect();
 		self.song = song;
-		self.state = State::Stopped;
 		self.position_us = 0;
 		self.cursor = 0;
 		self.sounding.clear();
+		match silence_at {
+			Some(at) => self.drain(at, State::Stopped),
+			None => self.state = State::Stopped,
+		}
 	}
 
 	pub fn play(&mut self) {
@@ -653,6 +659,24 @@ mod tests {
 				silence_at + SILENCE_MARGIN_US + 100_000,
 				word(0, ChannelMessage::NoteOn { key: 62, velocity: 100 })
 			))
+		);
+		assert_eq!(t.state(), State::Playing);
+	}
+
+	#[test]
+	fn loading_while_playing_defers_the_next_song_until_the_silence_lands() {
+		let (mut t, _clock) = transport(vec![note_on(0, 60), note_off(2_000_000, 60)]);
+		t.play();
+		t.pump();
+		t.load(song(vec![note_on(0, 64), note_off(1_000_000, 64)]));
+		t.play();
+		t.pump();
+		let sends = sent(&t);
+		let silence_at = START + SILENCE_MARGIN_US;
+		assert!(sends[1..5].iter().all(|s| s.0 == silence_at), "{sends:?}");
+		assert_eq!(
+			sends.last(),
+			Some(&(silence_at + SILENCE_MARGIN_US, word(0, ChannelMessage::NoteOn { key: 64, velocity: 100 })))
 		);
 		assert_eq!(t.state(), State::Playing);
 	}
