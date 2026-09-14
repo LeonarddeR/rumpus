@@ -24,3 +24,7 @@ embed-manifest = "1.5"
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+midly = "0.5"
+tempfile = "3"

@@ -83,6 +83,17 @@ pub fn sysex7(group: u8, payload: &[u8]) -> Vec<u32> {
 	m.data().to_vec()
 }
 
+/// The number of 32-bit words in the packet that starts with `word0`, from its message type.
+#[must_use]
+pub const fn packet_word_count(word0: u32) -> usize {
+	match word0 >> 28 {
+		0x0..=0x2 | 0x6 | 0x7 => 1,
+		0x3 | 0x4 | 0x8..=0xA => 2,
+		0xB | 0xC => 3,
+		_ => 4,
+	}
+}
+
 /// All Sound Off, Reset All Controllers and All Notes Off for one channel.
 #[must_use]
 pub fn panic_words(group: u8, channel: u8) -> [u32; 3] {
@@ -149,6 +160,16 @@ mod tests {
 			sysex7(0, &payload),
 			vec![0x3016_0102, 0x0304_0506, 0x3026_0708, 0x090A_0B0C, 0x3031_0D00, 0x0000_0000]
 		);
+	}
+
+	#[test]
+	fn packet_word_count_follows_the_message_type() {
+		assert_eq!(packet_word_count(0x1000_0000), 1);
+		assert_eq!(packet_word_count(0x2090_3C64), 1);
+		assert_eq!(packet_word_count(0x3016_0102), 2);
+		assert_eq!(packet_word_count(0x4090_0000), 2);
+		assert_eq!(packet_word_count(0x5000_0000), 4);
+		assert_eq!(packet_word_count(0xF000_0000), 4);
 	}
 
 	#[test]

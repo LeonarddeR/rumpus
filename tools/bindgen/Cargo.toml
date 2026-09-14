@@ -9,3 +9,6 @@ edition = "2024"
 windows-bindgen = "0.100.0"
 
 [workspace]
+
+[patch.crates-io]
+windows-bindgen = { path = "P:/Microsoft/windows-rs/crates/libs/bindgen" }

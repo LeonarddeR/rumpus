@@ -2,7 +2,7 @@ use std::{env, fs, path::PathBuf};
 
 use embed_manifest::{
 	embed_manifest,
-	manifest::{ActiveCodePage, DpiAwareness, SupportedOS::*},
+	manifest::{ActiveCodePage, DpiAwareness, SupportedOS::Windows10},
 	new_manifest,
 };
 
@@ -17,7 +17,7 @@ fn main() {
 	copy_sdk_runtime();
 }
 
-/// Copies the Windows MIDI Services runtime DLL next to the executable, where WinRT activation
+/// Copies the Windows MIDI Services runtime DLL next to the executables, where `WinRT` activation
 /// finds it when the classes are not registered system-wide.
 fn copy_sdk_runtime() {
 	let arch = match env::var("CARGO_CFG_TARGET_ARCH").as_deref() {
@@ -28,7 +28,9 @@ fn copy_sdk_runtime() {
 	};
 	let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
 	let source_dir = manifest_dir.join("../../sdk/runtimes").join(format!("win-{arch}")).join("native");
-	let target_dir = profile_dir();
+	let profile_dir = profile_dir();
+	// Test executables run from the deps directory, so they need their own copy.
+	let target_dirs = [profile_dir.clone(), profile_dir.join("deps")];
 	for name in SDK_FILES {
 		let source = source_dir.join(name);
 		println!("cargo:rerun-if-changed={}", source.display());
@@ -37,7 +39,9 @@ fn copy_sdk_runtime() {
 			"{} is missing; run tools\\fetch-sdk.ps1 to download the Windows MIDI Services SDK",
 			source.display()
 		);
-		fs::copy(&source, target_dir.join(name)).unwrap_or_else(|e| panic!("copying {name}: {e}"));
+		for dir in &target_dirs {
+			fs::copy(&source, dir.join(name)).unwrap_or_else(|e| panic!("copying {name} to {}: {e}", dir.display()));
+		}
 	}
 }
 

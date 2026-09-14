@@ -5,6 +5,11 @@
 --out crates/rumpus/src/midi/bindings.rs
 
 --filter
+    Windows.Foundation.TypedEventHandler
+    Windows.Devices.Midi2.IMidiGroupStatics
+    Windows.Devices.Midi2.IMidiGroupFactory
+    Windows.Devices.Midi2.IMidiEndpointConnectionStatics
+    Windows.Devices.Midi2.IMidiEndpointConnectionSettingsFactory
     Windows.Devices.Midi2.MidiApi::{EnsureServiceAvailable, GetCurrentlySelectedApiMode}
     Windows.Devices.Midi2.MidiApiMode
     Windows.Devices.Midi2.MidiClock::{Now, TimestampFrequency}

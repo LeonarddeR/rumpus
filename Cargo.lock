@@ -1158,7 +1158,9 @@ version = "0.1.0"
 dependencies = [
  "embed-manifest",
  "live-region",
+ "midly",
  "rumpus-core",
+ "tempfile",
  "tracing",
  "tracing-subscriber",
  "windows-collections 0.100.0",

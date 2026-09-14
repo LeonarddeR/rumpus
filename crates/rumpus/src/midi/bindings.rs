@@ -118,6 +118,33 @@ pub mod Windows {
 				pub base__: windows_core::IInspectable_Vtbl,
 			}
 			windows_core::imp::define_interface!(
+				IMidiEndpointConnectionSettingsFactory,
+				IMidiEndpointConnectionSettingsFactory_Vtbl,
+				0x8087b303_0519_c0de_31d1_ff0010007000
+			);
+			impl windows_core::RuntimeType for IMidiEndpointConnectionSettingsFactory {
+				const SIGNATURE: windows_core::imp::ConstBuffer =
+					windows_core::imp::ConstBuffer::for_interface::<Self>();
+				const NAME: windows_core::imp::ConstBuffer = windows_core::imp::ConstBuffer::from_slice(
+					b"Windows.Devices.Midi2.IMidiEndpointConnectionSettingsFactory",
+				);
+			}
+			#[repr(C)]
+			pub struct IMidiEndpointConnectionSettingsFactory_Vtbl {
+				pub base__: windows_core::IInspectable_Vtbl,
+				pub CreateInstance: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					bool,
+					*mut *mut core::ffi::c_void,
+				) -> windows_core::HRESULT,
+				pub CreateInstance2: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					bool,
+					bool,
+					*mut *mut core::ffi::c_void,
+				) -> windows_core::HRESULT,
+			}
+			windows_core::imp::define_interface!(
 				IMidiEndpointConnectionSource,
 				IMidiEndpointConnectionSource_Vtbl,
 				0x8087b303_0519_c0de_31d1_cc001000f030
@@ -161,6 +188,35 @@ pub mod Windows {
 				pub ConnectionId:
 					unsafe extern "system" fn(*mut core::ffi::c_void, *mut windows_core::GUID) -> windows_core::HRESULT,
 			}
+			windows_core::imp::define_interface!(
+				IMidiEndpointConnectionStatics,
+				IMidiEndpointConnectionStatics_Vtbl,
+				0x8087b303_0519_c0de_31d1_ee0010006000
+			);
+			impl windows_core::RuntimeType for IMidiEndpointConnectionStatics {
+				const SIGNATURE: windows_core::imp::ConstBuffer =
+					windows_core::imp::ConstBuffer::for_interface::<Self>();
+				const NAME: windows_core::imp::ConstBuffer =
+					windows_core::imp::ConstBuffer::from_slice(b"Windows.Devices.Midi2.IMidiEndpointConnectionStatics");
+			}
+			#[repr(C)]
+			pub struct IMidiEndpointConnectionStatics_Vtbl {
+				pub base__: windows_core::IInspectable_Vtbl,
+				pub GetDeviceSelector: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					*mut *mut core::ffi::c_void,
+				) -> windows_core::HRESULT,
+				pub SendMessageSucceeded: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					MidiSendMessageResults,
+					*mut bool,
+				) -> windows_core::HRESULT,
+				pub SendMessageFailed: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					MidiSendMessageResults,
+					*mut bool,
+				) -> windows_core::HRESULT,
+			}
 			windows_core::imp::define_interface!(IMidiGroup, IMidiGroup_Vtbl, 0x8087b303_0519_c0de_31d1_dd0010002000);
 			impl windows_core::RuntimeType for IMidiGroup {
 				const SIGNATURE: windows_core::imp::ConstBuffer =
@@ -173,6 +229,59 @@ pub mod Windows {
 				pub base__: windows_core::IInspectable_Vtbl,
 				pub Index: unsafe extern "system" fn(*mut core::ffi::c_void, *mut u8) -> windows_core::HRESULT,
 				pub SetIndex: unsafe extern "system" fn(*mut core::ffi::c_void, u8) -> windows_core::HRESULT,
+			}
+			windows_core::imp::define_interface!(
+				IMidiGroupFactory,
+				IMidiGroupFactory_Vtbl,
+				0x8087b303_0519_c0de_31d1_ff0010002000
+			);
+			impl windows_core::RuntimeType for IMidiGroupFactory {
+				const SIGNATURE: windows_core::imp::ConstBuffer =
+					windows_core::imp::ConstBuffer::for_interface::<Self>();
+				const NAME: windows_core::imp::ConstBuffer =
+					windows_core::imp::ConstBuffer::from_slice(b"Windows.Devices.Midi2.IMidiGroupFactory");
+			}
+			#[repr(C)]
+			pub struct IMidiGroupFactory_Vtbl {
+				pub base__: windows_core::IInspectable_Vtbl,
+				pub CreateInstance: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					u8,
+					*mut *mut core::ffi::c_void,
+				) -> windows_core::HRESULT,
+			}
+			windows_core::imp::define_interface!(
+				IMidiGroupStatics,
+				IMidiGroupStatics_Vtbl,
+				0x8087b303_0519_c0de_31d1_ee0010002000
+			);
+			impl windows_core::RuntimeType for IMidiGroupStatics {
+				const SIGNATURE: windows_core::imp::ConstBuffer =
+					windows_core::imp::ConstBuffer::for_interface::<Self>();
+				const NAME: windows_core::imp::ConstBuffer =
+					windows_core::imp::ConstBuffer::from_slice(b"Windows.Devices.Midi2.IMidiGroupStatics");
+			}
+			#[repr(C)]
+			pub struct IMidiGroupStatics_Vtbl {
+				pub base__: windows_core::IInspectable_Vtbl,
+				pub ShortLabel: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					*mut *mut core::ffi::c_void,
+				) -> windows_core::HRESULT,
+				pub ShortLabelPlural: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					*mut *mut core::ffi::c_void,
+				) -> windows_core::HRESULT,
+				pub LongLabel: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					*mut *mut core::ffi::c_void,
+				) -> windows_core::HRESULT,
+				pub LongLabelPlural: unsafe extern "system" fn(
+					*mut core::ffi::c_void,
+					*mut *mut core::ffi::c_void,
+				) -> windows_core::HRESULT,
+				pub IsValidIndex:
+					unsafe extern "system" fn(*mut core::ffi::c_void, u8, *mut bool) -> windows_core::HRESULT,
 			}
 			windows_core::imp::define_interface!(
 				IMidiMessageReceivedEventArgs,
@@ -307,26 +416,32 @@ pub mod Windows {
 			pub struct MidiApi;
 			impl MidiApi {
 				pub fn EnsureServiceAvailable() -> bool {
-					Self::IMidiApiStatics(|this| unsafe {
-						let mut result__ = core::mem::zeroed();
-						let hresult__ = (windows_core::Interface::vtable(this).EnsureServiceAvailable)(
-							windows_core::Interface::as_raw(this),
-							&mut result__,
-						);
-						debug_assert!(hresult__.0 == 0);
-						result__
+					Self::IMidiApiStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).EnsureServiceAvailable)(
+								windows_core::Interface::as_raw(this),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							result__
+						})
 					})
+					.unwrap()
 				}
 				pub fn GetCurrentlySelectedApiMode() -> MidiApiMode {
-					Self::IMidiApiStatics(|this| unsafe {
-						let mut result__ = core::mem::zeroed();
-						let hresult__ = (windows_core::Interface::vtable(this).GetCurrentlySelectedApiMode)(
-							windows_core::Interface::as_raw(this),
-							&mut result__,
-						);
-						debug_assert!(hresult__.0 == 0);
-						result__
+					Self::IMidiApiStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).GetCurrentlySelectedApiMode)(
+								windows_core::Interface::as_raw(this),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							result__
+						})
 					})
+					.unwrap()
 				}
 				fn IMidiApiStatics<R, F: FnOnce(&IMidiApiStatics) -> windows_core::Result<R>>(
 					callback: F,
@@ -359,26 +474,32 @@ pub mod Windows {
 			pub struct MidiClock;
 			impl MidiClock {
 				pub fn Now() -> u64 {
-					Self::IMidiClockStatics(|this| unsafe {
-						let mut result__ = core::mem::zeroed();
-						let hresult__ = (windows_core::Interface::vtable(this).Now)(
-							windows_core::Interface::as_raw(this),
-							&mut result__,
-						);
-						debug_assert!(hresult__.0 == 0);
-						result__
+					Self::IMidiClockStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).Now)(
+								windows_core::Interface::as_raw(this),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							result__
+						})
 					})
+					.unwrap()
 				}
 				pub fn TimestampFrequency() -> u64 {
-					Self::IMidiClockStatics(|this| unsafe {
-						let mut result__ = core::mem::zeroed();
-						let hresult__ = (windows_core::Interface::vtable(this).TimestampFrequency)(
-							windows_core::Interface::as_raw(this),
-							&mut result__,
-						);
-						debug_assert!(hresult__.0 == 0);
-						result__
+					Self::IMidiClockStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).TimestampFrequency)(
+								windows_core::Interface::as_raw(this),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							result__
+						})
 					})
+					.unwrap()
 				}
 				fn IMidiClockStatics<R, F: FnOnce(&IMidiClockStatics) -> windows_core::Result<R>>(
 					callback: F,
@@ -520,6 +641,50 @@ pub mod Windows {
 						result__
 					}
 				}
+				pub fn GetDeviceSelector() -> windows_core::HSTRING {
+					Self::IMidiEndpointConnectionStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).GetDeviceSelector)(
+								windows_core::Interface::as_raw(this),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							core::mem::transmute(result__)
+						})
+					})
+					.unwrap()
+				}
+				pub fn SendMessageSucceeded(sendresult: MidiSendMessageResults) -> bool {
+					Self::IMidiEndpointConnectionStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).SendMessageSucceeded)(
+								windows_core::Interface::as_raw(this),
+								sendresult,
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							result__
+						})
+					})
+					.unwrap()
+				}
+				pub fn SendMessageFailed(sendresult: MidiSendMessageResults) -> bool {
+					Self::IMidiEndpointConnectionStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).SendMessageFailed)(
+								windows_core::Interface::as_raw(this),
+								sendresult,
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							result__
+						})
+					})
+					.unwrap()
+				}
 				pub fn MessageReceived<F>(&self, handler: F) -> windows_core::Result<windows_core::EventRevoker>
 				where
 					F: Fn(
@@ -598,6 +763,32 @@ pub mod Windows {
 					> = windows_core::imp::FactoryCache::new();
 					SHARED.call(callback)
 				}
+				pub fn CreateInstance(waitforendpointreceiptonsend: bool) -> windows_core::Result<Self> {
+					Self::IMidiEndpointConnectionSettingsFactory(|this| unsafe {
+						let mut result__ = core::mem::zeroed();
+						(windows_core::Interface::vtable(this).CreateInstance)(
+							windows_core::Interface::as_raw(this),
+							waitforendpointreceiptonsend,
+							&mut result__,
+						)
+						.and_then(|| windows_core::imp::Type::from_abi(result__))
+					})
+				}
+				pub fn CreateInstance2(
+					waitforendpointreceiptonsend: bool,
+					autoreconnect: bool,
+				) -> windows_core::Result<Self> {
+					Self::IMidiEndpointConnectionSettingsFactory(|this| unsafe {
+						let mut result__ = core::mem::zeroed();
+						(windows_core::Interface::vtable(this).CreateInstance2)(
+							windows_core::Interface::as_raw(this),
+							waitforendpointreceiptonsend,
+							autoreconnect,
+							&mut result__,
+						)
+						.and_then(|| windows_core::imp::Type::from_abi(result__))
+					})
+				}
 				fn IMidiEndpointConnectionSettingsFactory<
 					R,
 					F: FnOnce(&IMidiEndpointConnectionSettingsFactory) -> windows_core::Result<R>,
@@ -658,6 +849,88 @@ pub mod Windows {
 						);
 						debug_assert!(hresult__.0 == 0);
 					}
+				}
+				pub fn CreateInstance(index: u8) -> windows_core::Result<Self> {
+					Self::IMidiGroupFactory(|this| unsafe {
+						let mut result__ = core::mem::zeroed();
+						(windows_core::Interface::vtable(this).CreateInstance)(
+							windows_core::Interface::as_raw(this),
+							index,
+							&mut result__,
+						)
+						.and_then(|| windows_core::imp::Type::from_abi(result__))
+					})
+				}
+				pub fn ShortLabel() -> windows_core::HSTRING {
+					Self::IMidiGroupStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).ShortLabel)(
+								windows_core::Interface::as_raw(this),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							core::mem::transmute(result__)
+						})
+					})
+					.unwrap()
+				}
+				pub fn ShortLabelPlural() -> windows_core::HSTRING {
+					Self::IMidiGroupStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).ShortLabelPlural)(
+								windows_core::Interface::as_raw(this),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							core::mem::transmute(result__)
+						})
+					})
+					.unwrap()
+				}
+				pub fn LongLabel() -> windows_core::HSTRING {
+					Self::IMidiGroupStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).LongLabel)(
+								windows_core::Interface::as_raw(this),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							core::mem::transmute(result__)
+						})
+					})
+					.unwrap()
+				}
+				pub fn LongLabelPlural() -> windows_core::HSTRING {
+					Self::IMidiGroupStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).LongLabelPlural)(
+								windows_core::Interface::as_raw(this),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							core::mem::transmute(result__)
+						})
+					})
+					.unwrap()
+				}
+				pub fn IsValidIndex(index: u8) -> bool {
+					Self::IMidiGroupStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).IsValidIndex)(
+								windows_core::Interface::as_raw(this),
+								index,
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							result__
+						})
+					})
+					.unwrap()
 				}
 				fn IMidiGroupFactory<R, F: FnOnce(&IMidiGroupFactory) -> windows_core::Result<R>>(
 					callback: F,
@@ -844,16 +1117,19 @@ pub mod Windows {
 					}
 				}
 				pub fn Create(sessionname: &windows_core::HSTRING) -> Option<Self> {
-					Self::IMidiSessionStatics(|this| unsafe {
-						let mut result__ = core::mem::zeroed();
-						let hresult__ = (windows_core::Interface::vtable(this).Create)(
-							windows_core::Interface::as_raw(this),
-							core::mem::transmute_copy(sessionname),
-							&mut result__,
-						);
-						debug_assert!(hresult__.0 == 0);
-						core::mem::transmute(result__)
+					Self::IMidiSessionStatics(|this| {
+						Ok(unsafe {
+							let mut result__ = core::mem::zeroed();
+							let hresult__ = (windows_core::Interface::vtable(this).Create)(
+								windows_core::Interface::as_raw(this),
+								core::mem::transmute_copy(sessionname),
+								&mut result__,
+							);
+							debug_assert!(hresult__.0 == 0);
+							core::mem::transmute(result__)
+						})
 					})
+					.unwrap()
 				}
 				fn IMidiSessionStatics<R, F: FnOnce(&IMidiSessionStatics) -> windows_core::Result<R>>(
 					callback: F,
@@ -904,26 +1180,32 @@ pub mod Windows {
 				pub struct MidiDiagnostics;
 				impl MidiDiagnostics {
 					pub fn DiagnosticsLoopbackAEndpointDeviceId() -> windows_core::HSTRING {
-						Self::IMidiDiagnosticsStatics(|this| unsafe {
-							let mut result__ = core::mem::zeroed();
-							let hresult__ = (windows_core::Interface::vtable(this)
-								.DiagnosticsLoopbackAEndpointDeviceId)(
-								windows_core::Interface::as_raw(this), &mut result__
-							);
-							debug_assert!(hresult__.0 == 0);
-							core::mem::transmute(result__)
+						Self::IMidiDiagnosticsStatics(|this| {
+							Ok(unsafe {
+								let mut result__ = core::mem::zeroed();
+								let hresult__ = (windows_core::Interface::vtable(this)
+									.DiagnosticsLoopbackAEndpointDeviceId)(
+									windows_core::Interface::as_raw(this), &mut result__
+								);
+								debug_assert!(hresult__.0 == 0);
+								core::mem::transmute(result__)
+							})
 						})
+						.unwrap()
 					}
 					pub fn DiagnosticsLoopbackBEndpointDeviceId() -> windows_core::HSTRING {
-						Self::IMidiDiagnosticsStatics(|this| unsafe {
-							let mut result__ = core::mem::zeroed();
-							let hresult__ = (windows_core::Interface::vtable(this)
-								.DiagnosticsLoopbackBEndpointDeviceId)(
-								windows_core::Interface::as_raw(this), &mut result__
-							);
-							debug_assert!(hresult__.0 == 0);
-							core::mem::transmute(result__)
+						Self::IMidiDiagnosticsStatics(|this| {
+							Ok(unsafe {
+								let mut result__ = core::mem::zeroed();
+								let hresult__ = (windows_core::Interface::vtable(this)
+									.DiagnosticsLoopbackBEndpointDeviceId)(
+									windows_core::Interface::as_raw(this), &mut result__
+								);
+								debug_assert!(hresult__.0 == 0);
+								core::mem::transmute(result__)
+							})
 						})
+						.unwrap()
 					}
 					fn IMidiDiagnosticsStatics<R, F: FnOnce(&IMidiDiagnosticsStatics) -> windows_core::Result<R>>(
 						callback: F,
@@ -1188,45 +1470,54 @@ pub mod Windows {
 						}
 					}
 					pub fn FindAll() -> Option<windows_collections::IVectorView<Self>> {
-						Self::IMidiEndpointDeviceInformationStatics(|this| unsafe {
-							let mut result__ = core::mem::zeroed();
-							let hresult__ = (windows_core::Interface::vtable(this).FindAll)(
-								windows_core::Interface::as_raw(this),
-								&mut result__,
-							);
-							debug_assert!(hresult__.0 == 0);
-							core::mem::transmute(result__)
+						Self::IMidiEndpointDeviceInformationStatics(|this| {
+							Ok(unsafe {
+								let mut result__ = core::mem::zeroed();
+								let hresult__ = (windows_core::Interface::vtable(this).FindAll)(
+									windows_core::Interface::as_raw(this),
+									&mut result__,
+								);
+								debug_assert!(hresult__.0 == 0);
+								core::mem::transmute(result__)
+							})
 						})
+						.unwrap()
 					}
 					pub fn FindAll2(
 						sortorder: MidiEndpointDeviceInformationSortOrder,
 					) -> Option<windows_collections::IVectorView<Self>> {
-						Self::IMidiEndpointDeviceInformationStatics(|this| unsafe {
-							let mut result__ = core::mem::zeroed();
-							let hresult__ = (windows_core::Interface::vtable(this).FindAll2)(
-								windows_core::Interface::as_raw(this),
-								sortorder,
-								&mut result__,
-							);
-							debug_assert!(hresult__.0 == 0);
-							core::mem::transmute(result__)
+						Self::IMidiEndpointDeviceInformationStatics(|this| {
+							Ok(unsafe {
+								let mut result__ = core::mem::zeroed();
+								let hresult__ = (windows_core::Interface::vtable(this).FindAll2)(
+									windows_core::Interface::as_raw(this),
+									sortorder,
+									&mut result__,
+								);
+								debug_assert!(hresult__.0 == 0);
+								core::mem::transmute(result__)
+							})
 						})
+						.unwrap()
 					}
 					pub fn FindAll3(
 						sortorder: MidiEndpointDeviceInformationSortOrder,
 						endpointtypestoinclude: MidiEndpointDeviceInformationFilters,
 					) -> Option<windows_collections::IVectorView<Self>> {
-						Self::IMidiEndpointDeviceInformationStatics(|this| unsafe {
-							let mut result__ = core::mem::zeroed();
-							let hresult__ = (windows_core::Interface::vtable(this).FindAll3)(
-								windows_core::Interface::as_raw(this),
-								sortorder,
-								endpointtypestoinclude,
-								&mut result__,
-							);
-							debug_assert!(hresult__.0 == 0);
-							core::mem::transmute(result__)
+						Self::IMidiEndpointDeviceInformationStatics(|this| {
+							Ok(unsafe {
+								let mut result__ = core::mem::zeroed();
+								let hresult__ = (windows_core::Interface::vtable(this).FindAll3)(
+									windows_core::Interface::as_raw(this),
+									sortorder,
+									endpointtypestoinclude,
+									&mut result__,
+								);
+								debug_assert!(hresult__.0 == 0);
+								core::mem::transmute(result__)
+							})
 						})
+						.unwrap()
 					}
 					fn IMidiEndpointDeviceInformationStatics<
 						R,
@@ -1408,6 +1699,35 @@ pub mod Windows {
 				.push_slice(b";")
 				.push_other(TResult::SIGNATURE)
 				.push_slice(b")");
+		}
+		impl<TSender: windows_core::RuntimeType + 'static, TResult: windows_core::RuntimeType + 'static>
+			TypedEventHandler<TSender, TResult>
+		{
+			pub fn new<
+				F: Fn(windows_core::Ref<TSender>, windows_core::Ref<TResult>) -> windows_core::Result<()> + Send + 'static,
+			>(
+				invoke: F,
+			) -> Self {
+				let com = windows_core::imp::DelegateBox::<Self, F>::new(
+					&TypedEventHandlerBox::<TSender, TResult, F>::VTABLE,
+					invoke,
+				);
+				unsafe { core::mem::transmute(windows_core::imp::box_new(com)) }
+			}
+			pub fn Invoke<P0, P1>(&self, sender: P0, args: P1) -> windows_core::Result<()>
+			where
+				P0: windows_core::Param<TSender>,
+				P1: windows_core::Param<TResult>,
+			{
+				unsafe {
+					(windows_core::Interface::vtable(self).Invoke)(
+						windows_core::Interface::as_raw(self),
+						sender.param().abi(),
+						args.param().abi(),
+					)
+					.ok()
+				}
+			}
 		}
 		#[repr(C)]
 		pub struct TypedEventHandler_Vtbl<TSender, TResult>
