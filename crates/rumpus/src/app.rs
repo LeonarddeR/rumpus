@@ -55,7 +55,9 @@ struct UiState {
 	duration_us: u64,
 	tempo_percent: i32,
 	transpose: i8,
-	/// Files from the command line, played once the service is ready.
+	/// Whether an output is selected, so files can be loaded and played.
+	ready: bool,
+	/// Files opened before the service was ready, played once it is.
 	pending_files: Vec<PathBuf>,
 	/// Announce the next position report, because the user just sought.
 	announce_next_position: bool,
@@ -66,9 +68,8 @@ pub struct App {
 	player: RefCell<Option<Player>>,
 	state: RefCell<UiState>,
 	menu_bar: MenuBar,
-	output_choice: Choice,
+	device_menu: Menu,
 	playlist_box: ListBox,
-	play_button: Button,
 	position_label: TextCtrl,
 	tempo_spin: SpinCtrl,
 	transpose_spin: SpinCtrl,
@@ -80,25 +81,17 @@ impl App {
 		let frame = Frame::builder().with_title("Rumpus").with_size(Size::new(700, 520)).build();
 		frame.set_menu_bar(menu::create_menu_bar());
 		let menu_bar = frame.get_menu_bar().expect("the menu bar was just set");
+		let device_menu = usize::try_from(menu_bar.find_menu("Device"))
+			.ok()
+			.and_then(|pos| menu_bar.get_menu(pos))
+			.expect("the menu bar has a Device menu");
 		frame.create_status_bar(1, 0, -1, "statusbar");
 		frame.set_status_text("Starting Windows MIDI Services...", 0);
 
 		let panel = Panel::builder(&frame).build();
 		let sizer = BoxSizer::builder(Orientation::Vertical).build();
 
-		let output_choice = labelled(panel, sizer, "&Output device:", |p| Choice::builder(p).build());
 		let playlist_box = labelled(panel, sizer, "&Playlist:", |p| ListBox::builder(p).build());
-
-		let buttons = BoxSizer::builder(Orientation::Horizontal).build();
-		let previous_button = Button::builder(&panel).with_label("Pre&vious").build();
-		let play_button = Button::builder(&panel).with_label("&Play").build();
-		let stop_button = Button::builder(&panel).with_label("&Stop").build();
-		let next_button = Button::builder(&panel).with_label("&Next").build();
-		for button in [previous_button, play_button, stop_button, next_button] {
-			buttons.add(&button, 0, SizerFlag::All, 4);
-		}
-		sizer.add_sizer(&buttons, 0, SizerFlag::Left | SizerFlag::All, 4);
-
 		let position_label = labelled(panel, sizer, "Position:", |p| {
 			TextCtrl::builder(p).with_value("0:00 / 0:00").with_style(TextCtrlStyle::ReadOnly).build()
 		});
@@ -127,9 +120,8 @@ impl App {
 				..UiState::default()
 			}),
 			menu_bar,
-			output_choice,
+			device_menu,
 			playlist_box,
-			play_button,
 			position_label,
 			tempo_spin,
 			transpose_spin,
@@ -138,14 +130,9 @@ impl App {
 		app.set_ready(false);
 
 		frame.on_menu_selected(|event| with_app(|app| app.on_command(event.get_id())));
-		previous_button.on_click(|_| with_app(|app| app.on_command(ids::PREVIOUS)));
-		play_button.on_click(|_| with_app(|app| app.on_command(ids::PLAY_PAUSE)));
-		stop_button.on_click(|_| with_app(|app| app.on_command(ids::STOP)));
-		next_button.on_click(|_| with_app(|app| app.on_command(ids::NEXT)));
-		output_choice.on_selection_changed(|_| with_app(Self::on_output_chosen));
 		playlist_box.on_selection_changed(|_| with_app(Self::on_playlist_selection));
 		playlist_box.on_item_double_clicked(|_| with_app(Self::play_selected));
-		playlist_box.bind_internal(EventType::KEY_DOWN, |event| {
+		playlist_box.bind_internal(EventType::CHAR_HOOK, |event| {
 			let key = event.get_key_code().unwrap_or(0);
 			if key == WXK_RETURN || key == WXK_NUMPAD_ENTER {
 				event.skip(false);
@@ -187,8 +174,7 @@ impl App {
 	}
 
 	fn set_ready(&self, ready: bool) {
-		self.output_choice.enable(ready);
-		self.play_button.enable(ready);
+		self.state.borrow_mut().ready = ready;
 		self.tempo_spin.enable(ready);
 		self.transpose_spin.enable(ready);
 		for id in ids::PLAYBACK {
@@ -249,33 +235,18 @@ impl App {
 			state.outputs = outputs;
 			selected
 		};
-		self.output_choice.clear();
-		let state = self.state.borrow();
-		for output in &state.outputs {
-			self.output_choice.append(&output.name);
-		}
-		if state.outputs.is_empty() {
-			drop(state);
+		let names: Vec<String> = self.state.borrow().outputs.iter().map(|o| o.name.clone()).collect();
+		menu::populate_devices(&self.device_menu, &names, selected);
+		if names.is_empty() {
 			self.frame.set_status_text("No MIDI output devices found", 0);
 			self.announce("No MIDI output devices found.");
 			return;
 		}
-		drop(state);
-		self.output_choice.set_selection(u32::try_from(selected).unwrap_or(0));
 		self.select_output(selected);
 		self.set_ready(true);
 		self.frame.set_status_text("Stopped", 0);
 		let pending = std::mem::take(&mut self.state.borrow_mut().pending_files);
-		if !pending.is_empty() {
-			self.add_files(pending);
-			self.play_selected();
-		}
-	}
-
-	fn on_output_chosen(&self) {
-		if let Some(index) = self.output_choice.get_selection() {
-			self.select_output(index as usize);
-		}
+		self.open_files(pending);
 	}
 
 	fn select_output(&self, index: usize) {
@@ -301,17 +272,14 @@ impl App {
 		};
 		match new_state {
 			State::Playing => {
-				self.play_button.set_label("&Pause");
 				self.frame.set_status_text(&format!("Playing: {title}"), 0);
 				self.announce(&format!("Playing {title}"));
 			}
 			State::Paused => {
-				self.play_button.set_label("&Play");
 				self.frame.set_status_text(&format!("Paused: {title}"), 0);
 				self.announce("Paused");
 			}
 			State::Stopped => {
-				self.play_button.set_label("&Play");
 				self.frame.set_status_text("Stopped", 0);
 				if previous.is_some_and(|p| p != State::Stopped) {
 					self.announce("Stopped");
@@ -336,7 +304,7 @@ impl App {
 		match id {
 			ids::OPEN_FILES => {
 				let files = dialogs::pick_midi_files(&self.frame);
-				self.add_files(files);
+				self.open_files(files);
 			}
 			ids::ADD_FOLDER => {
 				if let Some(folder) = dialogs::pick_folder(&self.frame) {
@@ -367,18 +335,39 @@ impl App {
 			ids::TRANSPOSE_RESET => self.set_transpose(0, true),
 			ids::REFRESH_DEVICES => self.send(Command::RefreshOutputs),
 			ids::ABOUT => dialogs::show_about(&self.frame),
-			_ => {}
+			id => {
+				if let Some(index) = ids::device_index(id) {
+					self.choose_output(index);
+				}
+			}
 		}
 	}
 
-	fn add_files(&self, files: Vec<PathBuf>) {
+	/// Switches to the output picked from the Device menu, unless it is already in use.
+	fn choose_output(&self, index: usize) {
+		let in_use = {
+			let state = self.state.borrow();
+			state.outputs.get(index).is_some_and(|o| state.config.output.as_ref() == Some(&o.selection))
+		};
+		if !in_use {
+			self.select_output(index);
+		}
+	}
+
+	/// Adds files to the playlist and plays the first of them, once the service is ready.
+	fn open_files(&self, files: Vec<PathBuf>) {
 		if files.is_empty() {
 			return;
 		}
-		let count = files.len();
+		if !self.state.borrow().ready {
+			self.state.borrow_mut().pending_files.extend(files);
+			return;
+		}
+		let first = self.state.borrow().playlist.tracks().len();
 		self.state.borrow_mut().playlist.add_files(files);
+		self.state.borrow_mut().playlist.select(first);
 		self.refresh_playlist();
-		self.announce(&format!("Added {count} {}", plural(count, "file", "files")));
+		self.play_selected();
 	}
 
 	fn add_folder(&self, folder: &std::path::Path) {

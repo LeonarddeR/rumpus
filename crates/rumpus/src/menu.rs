@@ -25,6 +25,22 @@ pub mod ids {
 	pub const TRANSPOSE_RESET: i32 = 5032;
 	pub const REFRESH_DEVICES: i32 = 5040;
 	pub const ABOUT: i32 = 5050;
+	/// The disabled placeholder shown in the Device menu when no output exists.
+	pub const NO_DEVICES: i32 = 5041;
+	/// The first of `MAX_DEVICES` consecutive ids, one per output in the Device menu.
+	const FIRST_DEVICE: i32 = 6000;
+	pub const MAX_DEVICES: usize = 256;
+
+	#[must_use]
+	pub fn device_id(index: usize) -> i32 {
+		FIRST_DEVICE + i32::try_from(index).unwrap_or(0)
+	}
+
+	#[must_use]
+	pub fn device_index(id: i32) -> Option<usize> {
+		let index = usize::try_from(id.checked_sub(FIRST_DEVICE)?).ok()?;
+		(index < MAX_DEVICES).then_some(index)
+	}
 
 	/// Commands that need a loaded output and are disabled until the service is ready.
 	pub const PLAYBACK: [i32; 15] = [
@@ -48,7 +64,7 @@ pub mod ids {
 
 /// Menu items as (id, label with `\t` shortcut, status bar help).
 const FILE_ITEMS: &[(i32, &str, &str)] = &[
-	(ids::OPEN_FILES, "&Open Files...\tCtrl+O", "Add MIDI files to the playlist"),
+	(ids::OPEN_FILES, "&Open Files...\tCtrl+O", "Add MIDI files to the playlist and play the first"),
 	(ids::ADD_FOLDER, "Add &Folder...\tCtrl+Shift+O", "Add every MIDI file in a folder to the playlist"),
 	(ids::REMOVE, "&Remove From Playlist\tDel", "Remove the selected file from the playlist"),
 	(ids::CLEAR, "&Clear Playlist", "Remove every file from the playlist"),
@@ -95,6 +111,31 @@ fn menu(items: &[(i32, &str, &str)]) -> Menu {
 	menu_builder(items).build()
 }
 
+/// Replaces the output items in the Device menu with one radio item per name, checking
+/// `selected`, or a disabled placeholder when there are none.
+pub fn populate_devices(device_menu: &Menu, names: &[String], selected: usize) {
+	for item in device_menu.get_menu_items() {
+		let id = item.get_item_id();
+		if id == ids::NO_DEVICES || ids::device_index(id).is_some() {
+			device_menu.delete(id);
+		}
+	}
+	if names.is_empty() {
+		device_menu.append(ids::NO_DEVICES, "No Output Devices", "", ItemKind::Normal);
+		device_menu.enable_item(ids::NO_DEVICES, false);
+		return;
+	}
+	for (index, name) in names.iter().take(ids::MAX_DEVICES).enumerate() {
+		device_menu.append(ids::device_id(index), &device_label(name), "Send MIDI to this output", ItemKind::Radio);
+	}
+	device_menu.check_item(ids::device_id(selected), true);
+}
+
+/// Doubles ampersands so device names do not become mnemonics.
+fn device_label(name: &str) -> String {
+	name.replace('&', "&&")
+}
+
 #[must_use]
 pub fn create_menu_bar() -> MenuBar {
 	let file =
@@ -104,7 +145,7 @@ pub fn create_menu_bar() -> MenuBar {
 		.append(menu(PLAYBACK_ITEMS), "&Playback")
 		.append(menu(TEMPO_ITEMS), "&Tempo")
 		.append(menu(TRANSPOSE_ITEMS), "T&ranspose")
-		.append(menu(DEVICE_ITEMS), "&Device")
+		.append(menu_builder(DEVICE_ITEMS).append_separator().build(), "&Device")
 		.append(menu(HELP_ITEMS), "&Help")
 		.build()
 }
@@ -131,6 +172,25 @@ mod tests {
 		let shortcuts: Vec<&str> = all_items().iter().filter_map(|item| item.1.split('\t').nth(1)).collect();
 		let unique: HashSet<&str> = shortcuts.iter().copied().collect();
 		assert_eq!(shortcuts.len(), unique.len(), "{shortcuts:?}");
+	}
+
+	#[test]
+	fn device_ids_round_trip_and_stay_clear_of_menu_items() {
+		let ids: HashSet<i32> = all_items().iter().map(|item| item.0).collect();
+		for index in [0, 1, ids::MAX_DEVICES - 1] {
+			let id = ids::device_id(index);
+			assert_eq!(ids::device_index(id), Some(index));
+			assert!(!ids.contains(&id), "{id}");
+		}
+		assert_eq!(ids::device_index(ids::NO_DEVICES), None);
+		assert_eq!(ids::device_index(ids::REFRESH_DEVICES), None);
+		assert!(!ids.contains(&ids::NO_DEVICES));
+	}
+
+	#[test]
+	fn device_labels_escape_ampersands() {
+		assert_eq!(device_label("Loopback A & B"), "Loopback A && B");
+		assert_eq!(device_label("Piano"), "Piano");
 	}
 
 	#[test]

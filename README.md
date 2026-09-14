@@ -59,7 +59,7 @@ until it is upstream.
 
 | Command | Shortcut |
 | --- | --- |
-| Open files | Ctrl+O |
+| Open files and play the first | Ctrl+O |
 | Add folder | Ctrl+Shift+O |
 | Remove from playlist | Delete |
 | Play or pause | Ctrl+P (Enter on a playlist item plays it) |
@@ -73,8 +73,9 @@ until it is upstream.
 | Refresh output devices | F5 |
 | Exit | Ctrl+Q |
 
-Tempo and transpose are also spin controls in the window. The current position is shown as a
-text field and announced on request, so playback never interrupts a screen reader.
+Tempo and transpose are also spin controls in the window. The MIDI output is chosen from the
+Device menu, which lists every output as a radio item. The current position is shown as a text
+field and announced on request, so playback never interrupts a screen reader.
 
 ## License
 
