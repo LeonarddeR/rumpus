@@ -6,10 +6,11 @@ screen reader users.
 
 ## Requirements
 
-- Windows 11 with Windows MIDI Services installed and running.
-- Rust 1.98 or later with the MSVC toolchain. The wxWidgets UI library is downloaded and built
-  from source by the `wxdragon-sys` crate on the first build; CMake and Visual Studio Build Tools
-  must be installed.
+- Windows 11 with Windows MIDI Services installed and the MIDI service running.
+- To build: Rust 1.98 or later with the MSVC toolchain, Visual Studio Build Tools with the C++
+  workload, CMake and Ninja (both ship with Visual Studio). All `cargo` commands must run inside a
+  Visual Studio Developer Command Prompt, because the `wxdragon-sys` crate downloads and builds
+  wxWidgets from source with CMake and Ninja on the first build.
 
 ## Building
 
@@ -20,13 +21,24 @@ screen reader users.
    ```
 
    This downloads the `Windows.Devices.Midi2` NuGet package and extracts the metadata and the
-   runtime DLL into `sdk/`.
+   runtime DLL into `sdk/`. The build copies the DLL next to the executable.
 
 2. Build and run:
 
    ```powershell
    cargo run -p rumpus -- path\to\song.mid
    ```
+
+## Testing
+
+```powershell
+cargo test -p rumpus-core
+cargo test -p rumpus
+cargo test -p rumpus -- --ignored
+```
+
+The ignored tests need the Windows MIDI Service and use its built-in diagnostic loopback
+endpoints, so they run without any MIDI hardware.
 
 ## Regenerating the bindings
 
@@ -38,9 +50,31 @@ from `sdk/Windows.Devices.Midi2.winmd` and committed. After changing the filter 
 cargo bindgen
 ```
 
+The SDK marks its methods `[noexcept]`, and released `windows-bindgen` 0.100 generates static
+calls for such methods that do not compile. `tools/bindgen/Cargo.toml` therefore patches
+`windows-bindgen` to a windows-rs checkout carrying the fix (branch `noexcept-static-methods`)
+until it is upstream.
+
 ## Keyboard reference
 
-See the Playback, Tempo, Transpose and Device menus in the app; every command shows its shortcut.
+| Command | Shortcut |
+| --- | --- |
+| Open files | Ctrl+O |
+| Add folder | Ctrl+Shift+O |
+| Remove from playlist | Delete |
+| Play or pause | Ctrl+P (Enter on a playlist item plays it) |
+| Stop | Ctrl+S |
+| Previous or next track | Ctrl+Page Up, Ctrl+Page Down |
+| Seek 5 seconds | Ctrl+Left, Ctrl+Right |
+| Seek 30 seconds | Ctrl+Shift+Left, Ctrl+Shift+Right |
+| Announce position | Ctrl+I |
+| Tempo down, up, reset | Ctrl+Down, Ctrl+Up, Ctrl+0 |
+| Transpose down, up, reset | Ctrl+Shift+Down, Ctrl+Shift+Up, Ctrl+Shift+0 |
+| Refresh output devices | F5 |
+| Exit | Ctrl+Q |
+
+Tempo and transpose are also spin controls in the window. The current position is shown as a
+text field and announced on request, so playback never interrupts a screen reader.
 
 ## License
 

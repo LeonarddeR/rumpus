@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: Core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy -p rumpus-core --all-targets -- -D warnings
+      - run: cargo test -p rumpus-core
+
+  app:
+    name: App (windows-x64)
+    needs: [core]
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: swatinem/rust-cache@v2
+        with:
+          cache-all-crates: true
+          cache-on-failure: true
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache-directories: ${{ runner.temp }}/wx-build
+      - name: Fetch the Windows MIDI Services SDK
+        shell: pwsh
+        run: .\tools\fetch-sdk.ps1
+      # wxdragon-sys downloads the wxWidgets source and builds its CMake trees in the cached
+      # wx-build directory.
+      - name: Lint, test and build
+        shell: pwsh
+        env:
+          WXWIDGETS_DIR: ${{ runner.temp }}/wx-build/source
+          WXWIDGETS_BUILD_DIR: ${{ runner.temp }}/wx-build/wxwidgets
+          WXDRAGON_SYS_BUILD_DIR: ${{ runner.temp }}/wx-build/wxdragon-sys
+        run: |
+          cargo clippy -p rumpus --all-targets -- -D warnings
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo test -p rumpus
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo build --release -p rumpus
